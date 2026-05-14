@@ -31,6 +31,39 @@ function ProjectWorkspace({
     () => projects.find((project) => project.id === selectedProjectId) || projects[0] || null,
     [projects, selectedProjectId]
   );
+  const totalTasks = useMemo(
+    () =>
+      projects.reduce(
+        (count, project) =>
+          count +
+          project.columns.reduce((columnCount, column) => columnCount + column.tasks.length, 0),
+        0
+      ),
+    [projects]
+  );
+  const activeTasks = useMemo(
+    () =>
+      selectedProject
+        ? selectedProject.columns
+            .filter((column) => column.name !== 'Done')
+            .reduce((count, column) => count + column.tasks.length, 0)
+        : 0,
+    [selectedProject]
+  );
+  const completedTasks = useMemo(
+    () =>
+      selectedProject?.columns.find((column) => column.name === 'Done')?.tasks.length || 0,
+    [selectedProject]
+  );
+  const completionRatio = useMemo(() => {
+    const total = activeTasks + completedTasks;
+
+    if (!total) {
+      return 0;
+    }
+
+    return Math.round((completedTasks / total) * 100);
+  }, [activeTasks, completedTasks]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -146,102 +179,163 @@ function ProjectWorkspace({
 
   return (
     <section className="dashboard-stack">
-      <article className="card hero-card">
-        <p className="eyebrow">Workspace foundation</p>
-        <h1>Start with one project and a clean board flow.</h1>
-        <p>
-          This dashboard is focused on the MVP path: create a project, seed
-          default columns, and prepare the next step for task creation.
-        </p>
-      </article>
-
-      <section className="dashboard-grid dashboard-grid--workspace">
-        <article className="card">
-          <div className="section-copy">
-            <h2>Create a project</h2>
-            <p>Each project starts with the kanban columns defined in the MVP.</p>
-          </div>
-
-          <form className="form-grid" onSubmit={handleSubmit}>
-            <label>
-              <span>Project name</span>
-              <input
-                type="text"
-                name="name"
-                placeholder="Website redesign"
-                value={formValues.name}
-                onChange={handleChange}
-              />
-            </label>
-
-            <label>
-              <span>Description</span>
-              <textarea
-                name="description"
-                placeholder="Short summary of the project goals"
-                value={formValues.description}
-                onChange={handleChange}
-                rows="4"
-              />
-            </label>
-
-            <button type="submit" className="primary-button" disabled={isCreating}>
-              {isCreating ? 'Creating project...' : 'Create project'}
-            </button>
-          </form>
-        </article>
-
-        <article className="card">
-          <div className="section-copy">
-            <h2>Your projects</h2>
-            <p>The newest project appears first and becomes the active preview.</p>
-          </div>
-
-          {isLoading ? <p className="status-copy">Loading projects...</p> : null}
-          {error ? <p className="form-error">{error}</p> : null}
-          {!isLoading && projects.length === 0 ? (
-            <p className="status-copy">
-              No projects yet. Create your first one to generate the default
-              board structure.
+      <section className="workspace-layout">
+        <aside className="workspace-sidebar">
+          <article className="card workspace-intel">
+            <p className="eyebrow">Workspace pulse</p>
+            <h1>Build a board that already feels alive.</h1>
+            <p>
+              Your foundation is working. Now the interface should reflect a real
+              product, with momentum, context, and visible project health.
             </p>
-          ) : null}
 
-          <div className="project-list">
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                className={`project-list-item ${
-                  project.id === selectedProject?.id ? 'project-list-item--active' : ''
-                }`}
-                onClick={() => onSelectProject(project.id)}
-              >
-                <h3>{project.name}</h3>
-                <p>{project.description || 'No description yet.'}</p>
-                <span>{project.columns.length} columns ready</span>
+            <div className="workspace-stats">
+              <article>
+                <span>{projects.length}</span>
+                <small>Projects</small>
+              </article>
+              <article>
+                <span>{totalTasks}</span>
+                <small>Total tasks</small>
+              </article>
+              <article>
+                <span>{completionRatio}%</span>
+                <small>Completion</small>
+              </article>
+            </div>
+          </article>
+
+          <article className="card workspace-creator">
+            <div className="section-copy">
+              <h2>Create a project</h2>
+              <p>Launch a fresh board with the default kanban flow already prepared.</p>
+            </div>
+
+            <form className="form-grid" onSubmit={handleSubmit}>
+              <label>
+                <span>Project name</span>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Website redesign"
+                  value={formValues.name}
+                  onChange={handleChange}
+                />
+              </label>
+
+              <label>
+                <span>Description</span>
+                <textarea
+                  name="description"
+                  placeholder="Short summary of the project goals"
+                  value={formValues.description}
+                  onChange={handleChange}
+                  rows="4"
+                />
+              </label>
+
+              <button type="submit" className="primary-button" disabled={isCreating}>
+                {isCreating ? 'Creating project...' : 'Create project'}
               </button>
-            ))}
-          </div>
-        </article>
-      </section>
+            </form>
+          </article>
+        </aside>
 
-      <article className="card">
-        <div className="section-copy">
-          <h2>Board preview</h2>
-          <p>
-            {selectedProject
-              ? `Default workflow for ${selectedProject.name}.`
-              : 'Project columns will appear here once a project is created.'}
-          </p>
-        </div>
+        <section className="workspace-main">
+          <article className="card board-hero">
+            <div className="board-hero-copy">
+              <p className="eyebrow">Active workspace</p>
+              <h2>
+                {selectedProject ? selectedProject.name : 'Choose or create a project'}
+              </h2>
+              <p>
+                {selectedProject
+                  ? selectedProject.description ||
+                    'A clean setup ready for planning, execution, and delivery.'
+                  : 'Start by creating a project to unlock the board experience.'}
+              </p>
+            </div>
 
-        {selectedProject ? (
-          <div className="board-preview">
+            <div className="board-hero-metrics">
+              <article>
+                <span>{activeTasks}</span>
+                <small>In flow</small>
+              </article>
+              <article>
+                <span>{completedTasks}</span>
+                <small>Done</small>
+              </article>
+            </div>
+          </article>
+
+          <section className="workspace-panels">
+            <article className="card project-directory">
+              <div className="section-copy">
+                <h2>Your projects</h2>
+                <p>Switch context quickly and keep the active board in focus.</p>
+              </div>
+
+              {isLoading ? <p className="status-copy">Loading projects...</p> : null}
+              {error ? <p className="form-error">{error}</p> : null}
+              {!isLoading && projects.length === 0 ? (
+                <p className="status-copy">
+                  No projects yet. Create your first one to generate the default
+                  board structure.
+                </p>
+              ) : null}
+
+              <div className="project-list">
+                {projects.map((project) => (
+                  <button
+                    key={project.id}
+                    type="button"
+                    className={`project-list-item ${
+                      project.id === selectedProject?.id ? 'project-list-item--active' : ''
+                    }`}
+                    onClick={() => onSelectProject(project.id)}
+                  >
+                    <div className="project-list-item-top">
+                      <h3>{project.name}</h3>
+                      <span>{project.columns.length} lanes</span>
+                    </div>
+                    <p>{project.description || 'No description yet.'}</p>
+                  </button>
+                ))}
+              </div>
+            </article>
+
+            <article className="card board-summary">
+              <div className="section-copy">
+                <h2>Board preview</h2>
+                <p>
+                  {selectedProject
+                    ? `The structure for ${selectedProject.name} is ready to receive work.`
+                    : 'Your board columns will appear here once a project is created.'}
+                </p>
+              </div>
+
+              {selectedProject ? (
+                <div className="column-pill-row">
+                  {selectedProject.columns.map((column) => (
+                    <div key={column.id} className="column-pill">
+                      <strong>{column.name}</strong>
+                      <span>{column.tasks.length}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="status-copy">Create a project to preview its board columns.</p>
+              )}
+            </article>
+          </section>
+
+          {selectedProject ? (
+            <div className="board-preview">
             {selectedProject.columns.map((column, columnIndex) => (
               <section key={column.id} className="board-column">
                 <header className="board-column-header">
                   <h3>{column.name}</h3>
-                  <span>{column.tasks.length} tasks</span>
+                  <span>{column.tasks.length} cards</span>
                 </header>
 
                 <div className="board-column-body board-column-body--stack">
@@ -393,11 +487,16 @@ function ProjectWorkspace({
                 </form>
               </section>
             ))}
-          </div>
-        ) : (
-          <p className="status-copy">Create a project to preview its board columns.</p>
-        )}
-      </article>
+            </div>
+          ) : (
+            <article className="card board-empty">
+              <p className="eyebrow">Board preview</p>
+              <h3>No active project yet</h3>
+              <p>Create a project to bring the kanban board to life.</p>
+            </article>
+          )}
+        </section>
+      </section>
     </section>
   );
 }

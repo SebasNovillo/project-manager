@@ -13,7 +13,7 @@ async function request(path, options = {}) {
     });
   } catch (error) {
     throw new Error(
-      'Could not connect to the server. Make sure the backend is running.'
+      'We could not complete your request right now. Please try again in a moment.'
     );
   }
 

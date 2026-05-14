@@ -7,7 +7,13 @@ function Header() {
   return (
     <header className="topbar">
       <Link to="/" className="brand">
-        Project Manager
+        <span className="brand-mark" aria-hidden="true">
+          PM
+        </span>
+        <span className="brand-copy">
+          <strong>Project Manager</strong>
+          <small>Scrum and Kanban workspace</small>
+        </span>
       </Link>
 
       <nav className="nav-links">
