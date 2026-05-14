@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import ProjectWorkspace from '../components/ProjectWorkspace';
 import useAuth from '../hooks/useAuth';
 import { createProject, getProjects } from '../services/projectService';
-import { createTask, updateTask } from '../services/taskService';
+import {
+  createTask,
+  deleteTask as deleteTaskRequest,
+  updateTask
+} from '../services/taskService';
 
 function sortColumns(columns) {
   return [...columns].sort((left, right) => left.position - right.position);
@@ -26,6 +30,7 @@ function DashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -149,6 +154,58 @@ function DashboardPage() {
     }
   };
 
+  const handleUpdateTask = async (projectId, taskId, values) => {
+    try {
+      setIsUpdatingTask(true);
+      const updatedTask = await updateTask(taskId, values, token);
+
+      setProjects((currentProjects) =>
+        updateProjectInList(currentProjects, projectId, (project) => ({
+          ...project,
+          columns: sortColumns(
+            project.columns.map((column) => ({
+              ...column,
+              tasks: column.tasks
+                .map((task) => (task.id === taskId ? { ...task, ...updatedTask } : task))
+                .sort((left, right) => left.position - right.position)
+            }))
+          )
+        }))
+      );
+      setError('');
+      return updatedTask;
+    } catch (requestError) {
+      setError(requestError.message);
+      throw requestError;
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
+
+  const handleDeleteTask = async (projectId, taskId) => {
+    try {
+      setIsDeletingTask(true);
+      await deleteTaskRequest(taskId, token);
+
+      setProjects((currentProjects) =>
+        updateProjectInList(currentProjects, projectId, (project) => ({
+          ...project,
+          columns: sortColumns(
+            project.columns.map((column) => ({
+              ...column,
+              tasks: column.tasks.filter((task) => task.id !== taskId)
+            }))
+          )
+        }))
+      );
+      setError('');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setIsDeletingTask(false);
+    }
+  };
+
   return (
     <ProjectWorkspace
       projects={projects}
@@ -159,9 +216,12 @@ function DashboardPage() {
       onSelectProject={handleSelectProject}
       onCreateTask={handleCreateTask}
       onMoveTask={handleMoveTask}
+      onUpdateTask={handleUpdateTask}
+      onDeleteTask={handleDeleteTask}
       isCreating={isCreating}
       isCreatingTask={isCreatingTask}
       isUpdatingTask={isUpdatingTask}
+      isDeletingTask={isDeletingTask}
     />
   );
 }

@@ -9,15 +9,23 @@ function ProjectWorkspace({
   onSelectProject,
   onCreateTask,
   onMoveTask,
+  onUpdateTask,
+  onDeleteTask,
   isCreating,
   isCreatingTask,
-  isUpdatingTask
+  isUpdatingTask,
+  isDeletingTask
 }) {
   const [formValues, setFormValues] = useState({
     name: '',
     description: ''
   });
   const [taskForms, setTaskForms] = useState({});
+  const [editingTaskId, setEditingTaskId] = useState('');
+  const [editingValues, setEditingValues] = useState({
+    title: '',
+    description: ''
+  });
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) || projects[0] || null,
@@ -86,6 +94,54 @@ function ProjectWorkspace({
     }
 
     await onMoveTask(selectedProject.id, taskId, columnId);
+  };
+
+  const startEditingTask = (task) => {
+    setEditingTaskId(task.id);
+    setEditingValues({
+      title: task.title,
+      description: task.description || ''
+    });
+  };
+
+  const cancelEditingTask = () => {
+    setEditingTaskId('');
+    setEditingValues({
+      title: '',
+      description: ''
+    });
+  };
+
+  const handleEditingValueChange = (event) => {
+    const { name, value } = event.target;
+
+    setEditingValues((currentValues) => ({
+      ...currentValues,
+      [name]: value
+    }));
+  };
+
+  const handleUpdateTask = async (event, taskId) => {
+    event.preventDefault();
+
+    if (!selectedProject) {
+      return;
+    }
+
+    await onUpdateTask(selectedProject.id, taskId, editingValues);
+    cancelEditingTask();
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!selectedProject) {
+      return;
+    }
+
+    await onDeleteTask(selectedProject.id, taskId);
+
+    if (editingTaskId === taskId) {
+      cancelEditingTask();
+    }
   };
 
   return (
@@ -194,16 +250,69 @@ function ProjectWorkspace({
                   ) : (
                     column.tasks.map((task) => (
                       <article key={task.id} className="task-card">
-                        <div className="task-card-copy">
-                          <h4>{task.title}</h4>
-                          <p>{task.description || 'No description yet.'}</p>
-                        </div>
+                        {editingTaskId === task.id ? (
+                          <form
+                            className="form-grid task-edit-form"
+                            onSubmit={(event) => handleUpdateTask(event, task.id)}
+                          >
+                            <label>
+                              <span>Task title</span>
+                              <input
+                                type="text"
+                                name="title"
+                                value={editingValues.title}
+                                onChange={handleEditingValueChange}
+                              />
+                            </label>
+
+                            <label>
+                              <span>Description</span>
+                              <textarea
+                                name="description"
+                                rows="3"
+                                value={editingValues.description}
+                                onChange={handleEditingValueChange}
+                              />
+                            </label>
+
+                            <div className="task-actions">
+                              <button
+                                type="submit"
+                                className="primary-button"
+                                disabled={isUpdatingTask}
+                              >
+                                {isUpdatingTask ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                type="button"
+                                className="ghost-button"
+                                onClick={cancelEditingTask}
+                                disabled={isUpdatingTask}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="task-card-copy">
+                            <h4>{task.title}</h4>
+                            <p>{task.description || 'No description yet.'}</p>
+                          </div>
+                        )}
 
                         <div className="task-actions">
                           <button
                             type="button"
                             className="ghost-button"
-                            disabled={columnIndex === 0 || isUpdatingTask}
+                            disabled={isUpdatingTask || isDeletingTask}
+                            onClick={() => startEditingTask(task)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            disabled={columnIndex === 0 || isUpdatingTask || isDeletingTask}
                             onClick={() =>
                               handleMoveTask(
                                 task.id,
@@ -218,7 +327,8 @@ function ProjectWorkspace({
                             className="ghost-button"
                             disabled={
                               columnIndex === selectedProject.columns.length - 1 ||
-                              isUpdatingTask
+                              isUpdatingTask ||
+                              isDeletingTask
                             }
                             onClick={() =>
                               handleMoveTask(
@@ -228,6 +338,14 @@ function ProjectWorkspace({
                             }
                           >
                             Move right
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--danger"
+                            disabled={isUpdatingTask || isDeletingTask}
+                            onClick={() => handleDeleteTask(task.id)}
+                          >
+                            {isDeletingTask ? 'Deleting...' : 'Delete'}
                           </button>
                         </div>
                       </article>

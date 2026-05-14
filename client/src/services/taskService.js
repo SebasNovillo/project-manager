@@ -19,3 +19,12 @@ export function updateTask(taskId, payload, token) {
     body: JSON.stringify(payload)
   });
 }
+
+export function deleteTask(taskId, token) {
+  return request(`/tasks/${taskId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}

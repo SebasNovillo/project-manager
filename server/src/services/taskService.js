@@ -154,3 +154,13 @@ export async function updateTaskForUser(userId, taskId, payload) {
     data
   });
 }
+
+export async function deleteTaskForUser(userId, taskId) {
+  await ensureOwnedTask(userId, taskId);
+
+  return prisma.task.delete({
+    where: {
+      id: taskId
+    }
+  });
+}

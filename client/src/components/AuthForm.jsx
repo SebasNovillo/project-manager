@@ -52,6 +52,19 @@ function AuthForm({
           />
         </label>
 
+        {values.confirmPassword !== undefined ? (
+          <label>
+            <span>Confirm password</span>
+            <input
+              type="password"
+              name="confirmPassword"
+              placeholder="Repeat your password"
+              value={values.confirmPassword}
+              onChange={onChange}
+            />
+          </label>
+        ) : null}
+
         {error ? <p className="form-error">{error}</p> : null}
 
         <button type="submit" className="primary-button" disabled={isSubmitting}>

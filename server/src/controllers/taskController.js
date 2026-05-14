@@ -1,5 +1,9 @@
 import asyncHandler from '../utils/asyncHandler.js';
-import { createTaskForProject, updateTaskForUser } from '../services/taskService.js';
+import {
+  createTaskForProject,
+  deleteTaskForUser,
+  updateTaskForUser
+} from '../services/taskService.js';
 
 export const createTask = asyncHandler(async (request, response) => {
   const task = await createTaskForProject(
@@ -19,4 +23,10 @@ export const updateTask = asyncHandler(async (request, response) => {
   );
 
   response.json(task);
+});
+
+export const deleteTask = asyncHandler(async (request, response) => {
+  await deleteTaskForUser(request.user.id, request.params.taskId);
+
+  response.status(204).send();
 });

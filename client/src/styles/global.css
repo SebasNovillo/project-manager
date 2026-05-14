@@ -184,6 +184,10 @@ input {
   color: var(--primary);
 }
 
+.ghost-button--danger:hover {
+  color: #bb2f3b;
+}
+
 .user-pill {
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
@@ -357,6 +361,10 @@ input {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.task-edit-form {
+  margin-bottom: 0.25rem;
 }
 
 textarea {

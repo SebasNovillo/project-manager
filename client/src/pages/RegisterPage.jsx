@@ -9,11 +9,24 @@ function RegisterPage() {
   const { values, error, isSubmitting, handleChange, handleSubmit } = useAuthForm({
     name: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
 
   const submitRegister = handleSubmit(async () => {
-    const session = await register(values);
+    if (values.password.length < 8) {
+      throw new Error('Password must be at least 8 characters long');
+    }
+
+    if (values.password !== values.confirmPassword) {
+      throw new Error('Passwords do not match');
+    }
+
+    const session = await register({
+      name: values.name,
+      email: values.email,
+      password: values.password
+    });
     setSession(session);
   });
 
