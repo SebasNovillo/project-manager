@@ -1,0 +1,67 @@
+import prisma from '../utils/prisma.js';
+
+const defaultColumns = ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'];
+
+export async function getProjectsForUser(userId) {
+  return prisma.project.findMany({
+    where: {
+      ownerId: userId
+    },
+    include: {
+      columns: {
+        include: {
+          tasks: {
+            orderBy: {
+              position: 'asc'
+            }
+          }
+        },
+        orderBy: {
+          position: 'asc'
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
+}
+
+export async function createProjectForUser(userId, payload) {
+  const name = payload.name?.trim();
+  const description = payload.description?.trim() || null;
+
+  if (!name) {
+    const error = new Error('Project name is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return prisma.project.create({
+    data: {
+      name,
+      description,
+      ownerId: userId,
+      columns: {
+        create: defaultColumns.map((columnName, index) => ({
+          name: columnName,
+          position: index
+        }))
+      }
+    },
+    include: {
+      columns: {
+        include: {
+          tasks: {
+            orderBy: {
+              position: 'asc'
+            }
+          }
+        },
+        orderBy: {
+          position: 'asc'
+        }
+      }
+    }
+  });
+}
