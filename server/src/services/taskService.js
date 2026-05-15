@@ -1,5 +1,58 @@
 import prisma from '../utils/prisma.js';
 
+const validPriorities = new Set(['low', 'medium', 'high', 'urgent']);
+
+function parsePriority(priority) {
+  if (priority === undefined) {
+    return undefined;
+  }
+
+  const normalizedPriority = String(priority).trim().toLowerCase();
+
+  if (!validPriorities.has(normalizedPriority)) {
+    const error = new Error('Priority must be low, medium, high, or urgent');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return normalizedPriority;
+}
+
+function parseLabels(labels) {
+  if (labels === undefined) {
+    return undefined;
+  }
+
+  const values = Array.isArray(labels)
+    ? labels
+    : String(labels)
+        .split(',')
+        .map((label) => label.trim())
+        .filter(Boolean);
+
+  return [...new Set(values)];
+}
+
+function parseDueDate(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    const error = new Error('Due date is invalid');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return parsedDate;
+}
+
 async function ensureProjectOwnership(userId, projectId) {
   const project = await prisma.project.findFirst({
     where: {
@@ -77,6 +130,9 @@ export async function createTaskForProject(userId, projectId, payload) {
   const title = payload.title?.trim();
   const description = payload.description?.trim() || null;
   const columnId = payload.columnId;
+  const priority = parsePriority(payload.priority) || 'medium';
+  const labels = parseLabels(payload.labels) || [];
+  const dueDate = parseDueDate(payload.dueDate) ?? null;
 
   if (!title || !columnId) {
     const error = new Error('Task title and column are required');
@@ -105,6 +161,9 @@ export async function createTaskForProject(userId, projectId, payload) {
     data: {
       title,
       description,
+      priority,
+      labels,
+      dueDate,
       columnId,
       position
     }
@@ -117,6 +176,9 @@ export async function updateTaskForUser(userId, taskId, payload) {
   const nextDescription =
     typeof payload.description === 'string' ? payload.description.trim() || null : undefined;
   const nextColumnId = payload.columnId;
+  const nextPriority = parsePriority(payload.priority);
+  const nextLabels = parseLabels(payload.labels);
+  const nextDueDate = parseDueDate(payload.dueDate);
 
   const data = {};
 
@@ -132,6 +194,18 @@ export async function updateTaskForUser(userId, taskId, payload) {
 
   if (nextDescription !== undefined) {
     data.description = nextDescription;
+  }
+
+  if (nextPriority !== undefined) {
+    data.priority = nextPriority;
+  }
+
+  if (nextLabels !== undefined) {
+    data.labels = nextLabels;
+  }
+
+  if (nextDueDate !== undefined) {
+    data.dueDate = nextDueDate;
   }
 
   if (nextColumnId && nextColumnId !== task.columnId) {
