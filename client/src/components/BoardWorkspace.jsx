@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
 
@@ -27,12 +26,14 @@ function normalizeLabels(value) {
     .filter(Boolean);
 }
 
+function getColumnTone(name) {
+  return name.toLowerCase().replace(/\s+/g, '-');
+}
+
 function BoardWorkspace({
-  projects,
   selectedProject,
   isLoading,
   error,
-  onSelectProject,
   onCreateTask,
   onMoveTask,
   onUpdateTask,
@@ -221,51 +222,21 @@ function BoardWorkspace({
   return (
     <section className="dashboard-stack">
       <section className="board-shell">
-        <article className="card board-page-hero">
-          <div className="board-page-hero-copy">
-            <p className="eyebrow">Board view</p>
+        <article className="card board-project-bar">
+          <div className="board-project-bar__copy">
+            <p className="eyebrow">Board</p>
             <h1>{selectedProject ? selectedProject.name : 'Choose a project'}</h1>
             <p>
               {selectedProject
                 ? selectedProject.description ||
-                  'Manage tasks, priorities, due dates, and flow in one focused space.'
-                : 'Select a project to work inside its board.'}
+                  'Manage tasks, priorities, due dates, and delivery in one focused space.'
+                : 'Select a project in the dashboard before managing the board.'}
             </p>
           </div>
 
-          <div className="board-page-hero-actions">
-            <Link to="/" className="ghost-button ghost-button--panel">
-              Back to dashboard
-            </Link>
-          </div>
+          {isLoading ? <p className="status-copy">Loading projects...</p> : null}
+          {error ? <p className="form-error">{error}</p> : null}
         </article>
-
-        <section className="board-toolbar">
-          <article className="card board-project-switcher">
-            <div className="section-copy">
-              <h2>Project context</h2>
-              <p>Switch boards here without mixing projects together.</p>
-            </div>
-
-            {isLoading ? <p className="status-copy">Loading projects...</p> : null}
-            {error ? <p className="form-error">{error}</p> : null}
-
-            <div className="project-chip-row">
-              {projects.map((project) => (
-                <button
-                  key={project.id}
-                  type="button"
-                  className={`project-chip ${
-                    project.id === selectedProject?.id ? 'project-chip--active' : ''
-                  }`}
-                  onClick={() => onSelectProject(project.id)}
-                >
-                  {project.name}
-                </button>
-              ))}
-            </div>
-          </article>
-        </section>
 
         {selectedProject ? (
           <div className="board-preview board-preview--full">
@@ -274,7 +245,7 @@ function BoardWorkspace({
                 key={column.id}
                 className={`board-column ${
                   dragState.overColumnId === column.id ? 'board-column--active' : ''
-                }`}
+                } board-column--${getColumnTone(column.name)}`}
                 onDragOver={(event) => handleDragOverColumn(event, column.id)}
                 onDrop={() => handleDropTask(column.id)}
               >
@@ -372,7 +343,7 @@ function BoardWorkspace({
                               </button>
                               <button
                                 type="button"
-                                className="ghost-button"
+                                className="ghost-button ghost-button--action"
                                 onClick={cancelEditingTask}
                                 disabled={isUpdatingTask}
                               >
@@ -414,7 +385,7 @@ function BoardWorkspace({
                         <div className="task-actions">
                           <button
                             type="button"
-                            className="ghost-button"
+                            className="ghost-button ghost-button--action"
                             disabled={isUpdatingTask || isDeletingTask}
                             onClick={() => startEditingTask(task)}
                           >
@@ -422,7 +393,7 @@ function BoardWorkspace({
                           </button>
                           <button
                             type="button"
-                            className="ghost-button ghost-button--danger"
+                            className="ghost-button ghost-button--action ghost-button--danger-solid"
                             disabled={isUpdatingTask || isDeletingTask}
                             onClick={() => handleDeleteTask(task.id)}
                           >
@@ -533,9 +504,9 @@ function BoardWorkspace({
           </div>
         ) : (
           <article className="card board-empty">
-            <p className="eyebrow">Board view</p>
+            <p className="eyebrow">Board</p>
             <h3>No active project yet</h3>
-            <p>Go back to the dashboard and create a project before managing tasks here.</p>
+            <p>Create or select a project from the dashboard before managing tasks here.</p>
           </article>
         )}
       </section>

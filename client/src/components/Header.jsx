@@ -19,8 +19,6 @@ function Header() {
       <nav className="nav-links">
         {isAuthenticated ? (
           <>
-            <NavLink to="/">Dashboard</NavLink>
-            <NavLink to="/board">Board</NavLink>
             <span className="user-pill">{user?.name}</span>
             <button type="button" className="ghost-button" onClick={logout}>
               Logout
