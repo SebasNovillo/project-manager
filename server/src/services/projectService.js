@@ -1,6 +1,5 @@
 import prisma from '../utils/prisma.js';
-
-const defaultColumns = ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'];
+import { buildSeededColumns } from '../utils/projectSeed.js';
 
 export async function getProjectsForUser(userId) {
   return prisma.project.findMany({
@@ -43,10 +42,7 @@ export async function createProjectForUser(userId, payload) {
       description,
       ownerId: userId,
       columns: {
-        create: defaultColumns.map((columnName, index) => ({
-          name: columnName,
-          position: index
-        }))
+        create: buildSeededColumns()
       }
     },
     include: {

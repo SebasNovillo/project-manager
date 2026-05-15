@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import prisma from '../utils/prisma.js';
 import { createToken } from '../utils/token.js';
+import { buildSeededColumns } from '../utils/projectSeed.js';
 
 function formatAuthResponse(user) {
   return {
@@ -44,6 +45,17 @@ export async function registerUser(payload) {
     }
   });
 
+  await prisma.project.create({
+    data: {
+      name: 'Getting Started',
+      description: 'An onboarding project with starter tasks so your workspace never feels empty.',
+      ownerId: user.id,
+      columns: {
+        create: buildSeededColumns()
+      }
+    }
+  });
+
   return formatAuthResponse(user);
 }
 
@@ -78,4 +90,3 @@ export async function loginUser(payload) {
 
   return formatAuthResponse(user);
 }
-
