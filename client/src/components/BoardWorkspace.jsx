@@ -30,6 +30,18 @@ function getColumnTone(name) {
   return name.toLowerCase().replace(/\s+/g, '-');
 }
 
+function buildColumnLookup(columns) {
+  return columns.reduce((lookup, column, index) => {
+    lookup[column.id] = {
+      index,
+      previousColumnId: columns[index - 1]?.id || '',
+      nextColumnId: columns[index + 1]?.id || ''
+    };
+
+    return lookup;
+  }, {});
+}
+
 function BoardWorkspace({
   selectedProject,
   isLoading,
@@ -46,6 +58,7 @@ function BoardWorkspace({
   const [openTaskComposerByColumn, setOpenTaskComposerByColumn] = useState({});
   const [editingTaskId, setEditingTaskId] = useState('');
   const [taskFormError, setTaskFormError] = useState('');
+  const [taskFormSuccess, setTaskFormSuccess] = useState('');
   const [editingValues, setEditingValues] = useState({
     title: '',
     description: '',
@@ -58,6 +71,8 @@ function BoardWorkspace({
     fromColumnId: '',
     overColumnId: ''
   });
+
+  const columnLookup = selectedProject ? buildColumnLookup(selectedProject.columns) : {};
 
   const handleTaskChange = (columnId, field, value) => {
     setTaskForms((currentForms) => ({
@@ -102,6 +117,7 @@ function BoardWorkspace({
       columnId
     });
     setTaskFormError('');
+    setTaskFormSuccess('Task created successfully.');
 
     setTaskForms((currentForms) => ({
       ...currentForms,
@@ -125,11 +141,14 @@ function BoardWorkspace({
     }
 
     await onMoveTask(selectedProject.id, taskId, columnId);
+    setTaskFormError('');
+    setTaskFormSuccess('Task moved successfully.');
   };
 
   const startEditingTask = (task) => {
     setOpenTaskComposerByColumn({});
     setTaskFormError('');
+    setTaskFormSuccess('');
     setEditingTaskId(task.id);
     setEditingValues({
       title: task.title,
@@ -142,6 +161,7 @@ function BoardWorkspace({
 
   const cancelEditingTask = () => {
     setEditingTaskId('');
+    setTaskFormError('');
     setEditingValues({
       title: '',
       description: '',
@@ -178,6 +198,7 @@ function BoardWorkspace({
       labels: normalizeLabels(editingValues.labels)
     });
     setTaskFormError('');
+    setTaskFormSuccess('Task updated successfully.');
     cancelEditingTask();
   };
 
@@ -187,6 +208,8 @@ function BoardWorkspace({
     }
 
     await onDeleteTask(selectedProject.id, taskId);
+    setTaskFormError('');
+    setTaskFormSuccess('Task deleted successfully.');
 
     if (editingTaskId === taskId) {
       cancelEditingTask();
@@ -231,6 +254,7 @@ function BoardWorkspace({
   const toggleTaskComposer = (columnId) => {
     setEditingTaskId('');
     setTaskFormError('');
+    setTaskFormSuccess('');
     setOpenTaskComposerByColumn((currentState) => {
       const nextValue = !currentState[columnId];
 
@@ -261,6 +285,7 @@ function BoardWorkspace({
 
           {isLoading ? <p className="status-copy">Loading projects...</p> : null}
           {error ? <p className="form-error">{error}</p> : null}
+          {taskFormSuccess ? <p className="form-success">{taskFormSuccess}</p> : null}
         </article>
 
         {selectedProject ? (
@@ -424,6 +449,31 @@ function BoardWorkspace({
                             onClick={() => handleDeleteTask(task.id)}
                           >
                             {isDeletingTask ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+
+                        <div className="task-move-row">
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--panel"
+                            disabled={
+                              isUpdatingTask || !columnLookup[column.id]?.previousColumnId
+                            }
+                            onClick={() =>
+                              handleMoveTask(task.id, columnLookup[column.id].previousColumnId)
+                            }
+                          >
+                            Move left
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--panel"
+                            disabled={isUpdatingTask || !columnLookup[column.id]?.nextColumnId}
+                            onClick={() =>
+                              handleMoveTask(task.id, columnLookup[column.id].nextColumnId)
+                            }
+                          >
+                            Move right
                           </button>
                         </div>
                       </article>
