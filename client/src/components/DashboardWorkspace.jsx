@@ -7,35 +7,22 @@ function DashboardWorkspace({
   isLoading,
   error,
   onCreateProject,
+  onUpdateProject,
+  onDeleteProject,
   onSelectProject,
-  isCreating
+  isCreating,
+  isUpdatingProject,
+  isDeletingProject
 }) {
   const [formValues, setFormValues] = useState({
     name: '',
     description: ''
   });
-
-  const totalTasks = useMemo(
-    () =>
-      projects.reduce(
-        (count, project) =>
-          count +
-          project.columns.reduce((columnCount, column) => columnCount + column.tasks.length, 0),
-        0
-      ),
-    [projects]
-  );
-
-  const totalCompletedTasks = useMemo(
-    () =>
-      projects.reduce(
-        (count, project) =>
-          count +
-          (project.columns.find((column) => column.name === 'Done')?.tasks.length || 0),
-        0
-      ),
-    [projects]
-  );
+  const [editingProjectId, setEditingProjectId] = useState('');
+  const [editingProjectValues, setEditingProjectValues] = useState({
+    name: '',
+    description: ''
+  });
 
   const activeTasks = useMemo(
     () =>
@@ -46,14 +33,6 @@ function DashboardWorkspace({
         : 0,
     [selectedProject]
   );
-
-  const completionRatio = useMemo(() => {
-    if (!totalTasks) {
-      return 0;
-    }
-
-    return Math.round((totalCompletedTasks / totalTasks) * 100);
-  }, [totalCompletedTasks, totalTasks]);
 
   const selectedProjectSummary = useMemo(() => {
     if (!selectedProject) {
@@ -75,6 +54,16 @@ function DashboardWorkspace({
     };
   }, [selectedProject]);
 
+  const completionRatio = useMemo(() => {
+    if (!selectedProjectSummary.totalCards) {
+      return 0;
+    }
+
+    return Math.round(
+      (selectedProjectSummary.completedCards / selectedProjectSummary.totalCards) * 100
+    );
+  }, [selectedProjectSummary]);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -91,6 +80,63 @@ function DashboardWorkspace({
       name: '',
       description: ''
     });
+  };
+
+  const startEditingProject = () => {
+    if (!selectedProject) {
+      return;
+    }
+
+    setEditingProjectId(selectedProject.id);
+    setEditingProjectValues({
+      name: selectedProject.name,
+      description: selectedProject.description || ''
+    });
+  };
+
+  const cancelEditingProject = () => {
+    setEditingProjectId('');
+    setEditingProjectValues({
+      name: '',
+      description: ''
+    });
+  };
+
+  const handleEditingProjectChange = (event) => {
+    const { name, value } = event.target;
+
+    setEditingProjectValues((currentValues) => ({
+      ...currentValues,
+      [name]: value
+    }));
+  };
+
+  const handleUpdateProjectSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!selectedProject) {
+      return;
+    }
+
+    await onUpdateProject(selectedProject.id, editingProjectValues);
+    cancelEditingProject();
+  };
+
+  const handleDeleteProjectClick = async () => {
+    if (!selectedProject) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${selectedProject.name}"? This will remove its columns and tasks.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await onDeleteProject(selectedProject.id);
+    cancelEditingProject();
   };
 
   return (
@@ -115,20 +161,24 @@ function DashboardWorkspace({
 
           <div className="project-list project-list--dashboard">
             {projects.map((project) => (
-              <button
+              <article
                 key={project.id}
-                type="button"
                 className={`project-list-item ${
                   project.id === selectedProject?.id ? 'project-list-item--active' : ''
                 }`}
-                onClick={() => onSelectProject(project.id)}
               >
-                <div className="project-list-item-top">
-                  <h3>{project.name}</h3>
-                  <span>{project.columns.length} lanes</span>
-                </div>
-                <p>{project.description || 'No description yet.'}</p>
-              </button>
+                <button
+                  type="button"
+                  className="project-select-button"
+                  onClick={() => onSelectProject(project.id)}
+                >
+                  <div className="project-list-item-top">
+                    <h3>{project.name}</h3>
+                    <span>{project.columns.length} lanes</span>
+                  </div>
+                  <p>{project.description || 'No description yet.'}</p>
+                </button>
+              </article>
             ))}
           </div>
         </article>
@@ -146,37 +196,96 @@ function DashboardWorkspace({
 
           <div className="summary-metric-grid summary-metric-grid--compact">
             <article className="summary-metric-card">
-              <strong>{projects.length}</strong>
-              <span>Projects</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{totalTasks}</strong>
+              <strong>{selectedProjectSummary.totalCards}</strong>
               <span>Tasks</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{completionRatio}%</strong>
-              <span>Completion</span>
             </article>
             <article className="summary-metric-card">
               <strong>{activeTasks}</strong>
               <span>In flow</span>
             </article>
             <article className="summary-metric-card">
-              <strong>{selectedProjectSummary.lanes}</strong>
-              <span>Lanes</span>
+              <strong>{completionRatio}%</strong>
+              <span>Completion</span>
             </article>
             <article className="summary-metric-card">
               <strong>{selectedProjectSummary.completedCards}</strong>
               <span>Done</span>
             </article>
+            <article className="summary-metric-card">
+              <strong>{selectedProjectSummary.lanes}</strong>
+              <span>Lanes</span>
+            </article>
           </div>
 
           {selectedProject ? (
-            <div className="summary-action-row">
-              <Link to="/board" className="primary-button">
-                Open board
-              </Link>
-            </div>
+            <>
+              <div className="summary-action-row summary-action-row--split">
+                <Link to="/board" className="primary-button">
+                  Open board
+                </Link>
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--action"
+                  onClick={startEditingProject}
+                  disabled={isUpdatingProject || isDeletingProject}
+                >
+                  Edit project
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--action ghost-button--danger-solid"
+                  onClick={handleDeleteProjectClick}
+                  disabled={isUpdatingProject || isDeletingProject}
+                >
+                  {isDeletingProject ? 'Deleting...' : 'Delete project'}
+                </button>
+              </div>
+
+              {editingProjectId === selectedProject.id ? (
+                <form
+                  className="form-grid project-edit-form"
+                  onSubmit={handleUpdateProjectSubmit}
+                >
+                  <label>
+                    <span>Project name</span>
+                    <input
+                      type="text"
+                      name="name"
+                      value={editingProjectValues.name}
+                      onChange={handleEditingProjectChange}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Description</span>
+                    <textarea
+                      name="description"
+                      rows="3"
+                      value={editingProjectValues.description}
+                      onChange={handleEditingProjectChange}
+                    />
+                  </label>
+
+                  <div className="task-actions">
+                    <button
+                      type="submit"
+                      className="primary-button"
+                      disabled={isUpdatingProject}
+                    >
+                      {isUpdatingProject ? 'Saving...' : 'Save project'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button ghost-button--action"
+                      onClick={cancelEditingProject}
+                      disabled={isUpdatingProject}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </>
           ) : null}
         </article>
 

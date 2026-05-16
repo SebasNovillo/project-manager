@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import useAuth from './useAuth';
-import { createProject, getProjects } from '../services/projectService';
+import {
+  createProject,
+  deleteProject as deleteProjectRequest,
+  getProjects,
+  updateProject as updateProjectRequest
+} from '../services/projectService';
 import {
   createTask,
   deleteTask as deleteTaskRequest,
@@ -34,6 +39,8 @@ function useWorkspaceData() {
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isUpdatingProject, setIsUpdatingProject] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -111,6 +118,51 @@ function useWorkspaceData() {
 
   const handleSelectProject = (projectId) => {
     setSelectedProjectId(projectId);
+  };
+
+  const handleUpdateProject = async (projectId, values) => {
+    try {
+      setIsUpdatingProject(true);
+      const updatedProject = await updateProjectRequest(projectId, values, token);
+
+      setProjects((currentProjects) =>
+        updateProjectInList(currentProjects, projectId, () => updatedProject)
+      );
+      setError('');
+      return updatedProject;
+    } catch (requestError) {
+      setError(requestError.message);
+      throw requestError;
+    } finally {
+      setIsUpdatingProject(false);
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    try {
+      setIsDeletingProject(true);
+      await deleteProjectRequest(projectId, token);
+
+      setProjects((currentProjects) => {
+        const nextProjects = currentProjects.filter((project) => project.id !== projectId);
+
+        setSelectedProjectId((currentSelectedProjectId) => {
+          if (currentSelectedProjectId !== projectId) {
+            return currentSelectedProjectId;
+          }
+
+          return nextProjects[0]?.id || '';
+        });
+
+        return nextProjects;
+      });
+      setError('');
+    } catch (requestError) {
+      setError(requestError.message);
+      throw requestError;
+    } finally {
+      setIsDeletingProject(false);
+    }
   };
 
   const handleCreateTask = async (projectId, values) => {
@@ -243,8 +295,12 @@ function useWorkspaceData() {
     isCreatingTask,
     isUpdatingTask,
     isDeletingTask,
+    isUpdatingProject,
+    isDeletingProject,
     error,
     onCreateProject: handleCreateProject,
+    onUpdateProject: handleUpdateProject,
+    onDeleteProject: handleDeleteProject,
     onSelectProject: handleSelectProject,
     onCreateTask: handleCreateTask,
     onMoveTask: handleMoveTask,

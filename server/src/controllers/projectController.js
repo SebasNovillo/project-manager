@@ -1,7 +1,9 @@
 import asyncHandler from '../utils/asyncHandler.js';
 import {
   createProjectForUser,
-  getProjectsForUser
+  deleteProjectForUser,
+  getProjectsForUser,
+  updateProjectForUser
 } from '../services/projectService.js';
 
 export const getProjects = asyncHandler(async (request, response) => {
@@ -16,3 +18,18 @@ export const createProject = asyncHandler(async (request, response) => {
   response.status(201).json(project);
 });
 
+export const updateProject = asyncHandler(async (request, response) => {
+  const project = await updateProjectForUser(
+    request.params.projectId,
+    request.user.id,
+    request.body
+  );
+
+  response.json(project);
+});
+
+export const deleteProject = asyncHandler(async (request, response) => {
+  await deleteProjectForUser(request.params.projectId, request.user.id);
+
+  response.status(204).send();
+});

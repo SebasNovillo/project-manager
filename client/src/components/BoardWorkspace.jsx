@@ -45,6 +45,7 @@ function BoardWorkspace({
   const [taskForms, setTaskForms] = useState({});
   const [openTaskComposerByColumn, setOpenTaskComposerByColumn] = useState({});
   const [editingTaskId, setEditingTaskId] = useState('');
+  const [taskFormError, setTaskFormError] = useState('');
   const [editingValues, setEditingValues] = useState({
     title: '',
     description: '',
@@ -87,14 +88,20 @@ function BoardWorkspace({
       dueDate: ''
     };
 
+    if (!values.title?.trim()) {
+      setTaskFormError('Task title is required');
+      return;
+    }
+
     await onCreateTask(selectedProject.id, {
-      title: values.title,
+      title: values.title.trim(),
       description: values.description,
       priority: values.priority,
       labels: normalizeLabels(values.labels),
       dueDate: values.dueDate,
       columnId
     });
+    setTaskFormError('');
 
     setTaskForms((currentForms) => ({
       ...currentForms,
@@ -121,6 +128,8 @@ function BoardWorkspace({
   };
 
   const startEditingTask = (task) => {
+    setOpenTaskComposerByColumn({});
+    setTaskFormError('');
     setEditingTaskId(task.id);
     setEditingValues({
       title: task.title,
@@ -158,10 +167,17 @@ function BoardWorkspace({
       return;
     }
 
+    if (!editingValues.title?.trim()) {
+      setTaskFormError('Task title is required');
+      return;
+    }
+
     await onUpdateTask(selectedProject.id, taskId, {
       ...editingValues,
+      title: editingValues.title.trim(),
       labels: normalizeLabels(editingValues.labels)
     });
+    setTaskFormError('');
     cancelEditingTask();
   };
 
@@ -213,10 +229,19 @@ function BoardWorkspace({
   };
 
   const toggleTaskComposer = (columnId) => {
-    setOpenTaskComposerByColumn((currentState) => ({
-      ...currentState,
-      [columnId]: !currentState[columnId]
-    }));
+    setEditingTaskId('');
+    setTaskFormError('');
+    setOpenTaskComposerByColumn((currentState) => {
+      const nextValue = !currentState[columnId];
+
+      if (!nextValue) {
+        return {};
+      }
+
+      return {
+        [columnId]: true
+      };
+    });
   };
 
   return (
@@ -350,6 +375,7 @@ function BoardWorkspace({
                                 Cancel
                               </button>
                             </div>
+                            {taskFormError ? <p className="form-error">{taskFormError}</p> : null}
                           </form>
                         ) : (
                           <div className="task-card-copy">
@@ -497,6 +523,7 @@ function BoardWorkspace({
                     >
                       {isCreatingTask ? 'Saving task...' : 'Add task'}
                     </button>
+                    {taskFormError ? <p className="form-error">{taskFormError}</p> : null}
                   </form>
                 ) : null}
               </section>
