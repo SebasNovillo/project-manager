@@ -487,16 +487,24 @@ textarea {
   color: var(--text-muted);
 }
 
+.board-instruction {
+  margin-top: 0.85rem;
+  font-size: 0.92rem;
+  color: #4d648f;
+}
+
 .board-preview {
   display: grid;
   grid-template-columns: repeat(5, minmax(280px, 1fr));
   gap: 1rem;
   width: 100%;
   overflow-x: auto;
+  overflow-y: visible;
   padding-bottom: 0.35rem;
 }
 
 .board-column {
+  position: relative;
   min-height: 240px;
   padding: 1rem;
   border-radius: 24px;
@@ -504,6 +512,7 @@ textarea {
     linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(245, 248, 255, 0.92) 100%);
   border: 1px solid rgba(16, 32, 58, 0.08);
   box-shadow: 0 18px 38px rgba(16, 32, 58, 0.08);
+  overflow: visible;
   transition:
     transform 160ms ease,
     border-color 160ms ease,
@@ -546,6 +555,12 @@ textarea {
     0 22px 44px rgba(16, 32, 58, 0.1),
     inset 0 0 0 1px rgba(20, 89, 217, 0.12);
   transform: translateY(-2px);
+}
+
+.board-column--over {
+  box-shadow:
+    0 24px 50px rgba(16, 32, 58, 0.12),
+    inset 0 0 0 1px rgba(20, 89, 217, 0.18);
 }
 
 .board-column-header {
@@ -599,6 +614,11 @@ textarea {
   gap: 0.85rem;
 }
 
+.board-column-body--over {
+  background: rgba(255, 255, 255, 0.9);
+  border-style: solid;
+}
+
 .column-footer,
 .board-task-form {
   margin-top: 1rem;
@@ -625,6 +645,22 @@ textarea {
   transform: rotate(1deg) scale(0.99);
 }
 
+.task-card--over {
+  border-color: rgba(20, 89, 217, 0.24);
+  box-shadow:
+    0 14px 28px rgba(16, 32, 58, 0.09),
+    inset 0 0 0 1px rgba(20, 89, 217, 0.12);
+}
+
+.task-card--overlay {
+  width: min(100%, 280px);
+  opacity: 0.96;
+  box-shadow: 0 24px 44px rgba(16, 32, 58, 0.16);
+  transform: rotate(1deg);
+  pointer-events: none;
+  z-index: 999;
+}
+
 .task-card-copy h4 {
   margin: 0 0 0.25rem;
   overflow-wrap: anywhere;
@@ -638,7 +674,11 @@ textarea {
 }
 
 .task-grip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.28rem 0.55rem;
+  border: 0;
   border-radius: 999px;
   background: rgba(20, 89, 217, 0.08);
   color: #4d648f;
@@ -646,6 +686,20 @@ textarea {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  cursor: grab;
+}
+
+.task-grip:active {
+  cursor: grabbing;
+}
+
+.task-grip__dots {
+  font-size: 0.82rem;
+  letter-spacing: -0.08em;
+}
+
+.task-grip--static {
+  cursor: default;
 }
 
 .task-card-copy p {
@@ -733,12 +787,6 @@ textarea {
   gap: 0.75rem;
   flex-wrap: wrap;
   font-size: 0.92rem;
-}
-
-.task-move-row {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
 }
 
 .task-edit-form {

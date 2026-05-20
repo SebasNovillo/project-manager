@@ -53,6 +53,22 @@ function parseDueDate(value) {
   return parsedDate;
 }
 
+function parsePosition(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsedPosition = Number(value);
+
+  if (!Number.isInteger(parsedPosition) || parsedPosition < 0) {
+    const error = new Error('Position must be a non-negative integer');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return parsedPosition;
+}
+
 async function ensureProjectOwnership(userId, projectId) {
   const project = await prisma.project.findFirst({
     where: {
@@ -126,6 +142,114 @@ async function getNextTaskPosition(columnId) {
   return (aggregate._max.position ?? -1) + 1;
 }
 
+function clampIndex(index, length) {
+  if (index === undefined) {
+    return length;
+  }
+
+  return Math.max(0, Math.min(index, length));
+}
+
+async function reorderTask(task, updates, targetColumnId, targetPosition) {
+  const sameColumn = task.columnId === targetColumnId;
+
+  const [sourceTasks, targetTasks] = await Promise.all([
+    prisma.task.findMany({
+      where: {
+        columnId: task.columnId
+      },
+      orderBy: {
+        position: 'asc'
+      }
+    }),
+    sameColumn
+      ? Promise.resolve([])
+      : prisma.task.findMany({
+          where: {
+            columnId: targetColumnId
+          },
+          orderBy: {
+            position: 'asc'
+          }
+        })
+  ]);
+
+  if (sameColumn) {
+    const remainingTasks = sourceTasks.filter((item) => item.id !== task.id);
+    const nextIndex = clampIndex(targetPosition, remainingTasks.length);
+    const reorderedTasks = [...remainingTasks];
+
+    reorderedTasks.splice(nextIndex, 0, task);
+
+    await prisma.$transaction(
+      reorderedTasks.map((item, index) =>
+        prisma.task.update({
+          where: {
+            id: item.id
+          },
+          data:
+            item.id === task.id
+              ? {
+                  ...updates,
+                  position: index
+                }
+              : {
+                  position: index
+                }
+        })
+      )
+    );
+
+    return prisma.task.findUnique({
+      where: {
+        id: task.id
+      }
+    });
+  }
+
+  const remainingSourceTasks = sourceTasks.filter((item) => item.id !== task.id);
+  const nextIndex = clampIndex(targetPosition, targetTasks.length);
+  const reorderedTargetTasks = [...targetTasks];
+
+  reorderedTargetTasks.splice(nextIndex, 0, task);
+
+  await prisma.$transaction([
+    ...remainingSourceTasks.map((item, index) =>
+      prisma.task.update({
+        where: {
+          id: item.id
+        },
+        data: {
+          position: index
+        }
+      })
+    ),
+    ...reorderedTargetTasks.map((item, index) =>
+      prisma.task.update({
+        where: {
+          id: item.id
+        },
+        data:
+          item.id === task.id
+            ? {
+                ...updates,
+                columnId: targetColumnId,
+                position: index
+              }
+            : {
+                position: index
+              }
+      })
+    )
+  ]);
+
+  return prisma.task.findUnique({
+    where: {
+      id: task.id
+    }
+  });
+}
+
 export async function createTaskForProject(userId, projectId, payload) {
   const title = payload.title?.trim();
   const description = payload.description?.trim() || null;
@@ -179,6 +303,7 @@ export async function updateTaskForUser(userId, taskId, payload) {
   const nextPriority = parsePriority(payload.priority);
   const nextLabels = parseLabels(payload.labels);
   const nextDueDate = parseDueDate(payload.dueDate);
+  const nextPosition = parsePosition(payload.position);
 
   const data = {};
 
@@ -208,17 +333,22 @@ export async function updateTaskForUser(userId, taskId, payload) {
     data.dueDate = nextDueDate;
   }
 
-  if (nextColumnId && nextColumnId !== task.columnId) {
-    const nextColumn = await ensureOwnedColumn(userId, nextColumnId);
+  const targetColumnId = nextColumnId || task.columnId;
+  const shouldReorder =
+    nextPosition !== undefined || (nextColumnId && nextColumnId !== task.columnId);
+
+  if (targetColumnId !== task.columnId) {
+    const nextColumn = await ensureOwnedColumn(userId, targetColumnId);
 
     if (nextColumn.projectId !== task.column.projectId) {
       const error = new Error('Task can only move inside its current project');
       error.statusCode = 400;
       throw error;
     }
+  }
 
-    data.columnId = nextColumnId;
-    data.position = await getNextTaskPosition(nextColumnId);
+  if (shouldReorder) {
+    return reorderTask(task, data, targetColumnId, nextPosition);
   }
 
   return prisma.task.update({

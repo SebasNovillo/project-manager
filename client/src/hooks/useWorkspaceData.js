@@ -28,6 +28,67 @@ function updateProjectInList(projects, projectId, updater) {
   });
 }
 
+function reorderProjectTasks(project, taskId, targetColumnId, targetIndex, updatedTaskData = {}) {
+  let movedTask = null;
+
+  const columnsWithoutTask = project.columns.map((column) => {
+    const foundTask = column.tasks.find((task) => task.id === taskId);
+
+    if (foundTask) {
+      movedTask = foundTask;
+    }
+
+    return {
+      ...column,
+      tasks: column.tasks.filter((task) => task.id !== taskId)
+    };
+  });
+
+  if (!movedTask) {
+    return project;
+  }
+
+  return {
+    ...project,
+    columns: sortColumns(
+      columnsWithoutTask.map((column) => {
+        if (column.id !== targetColumnId) {
+          return {
+            ...column,
+            tasks: column.tasks.map((task, index) => ({
+              ...task,
+              position: index
+            }))
+          };
+        }
+
+        const insertionIndex = Math.max(
+          0,
+          Math.min(
+            typeof targetIndex === 'number' ? targetIndex : column.tasks.length,
+            column.tasks.length
+          )
+        );
+        const nextTasks = [...column.tasks];
+
+        nextTasks.splice(insertionIndex, 0, {
+          ...movedTask,
+          ...updatedTaskData,
+          columnId: targetColumnId
+        });
+
+        return {
+          ...column,
+          tasks: nextTasks.map((task, index) => ({
+            ...task,
+            position: index
+          }))
+        };
+      })
+    )
+  };
+}
+
 function useWorkspaceData() {
   const { token } = useAuth();
   const [projects, setProjects] = useState([]);
@@ -197,34 +258,21 @@ function useWorkspaceData() {
     }
   };
 
-  const handleMoveTask = async (projectId, taskId, columnId) => {
+  const handleMoveTask = async (projectId, taskId, columnId, targetIndex) => {
     try {
       setIsUpdatingTask(true);
-      const updatedTask = await updateTask(taskId, { columnId }, token);
+      const updatedTask = await updateTask(taskId, { columnId, position: targetIndex }, token);
 
       setProjects((currentProjects) =>
-        updateProjectInList(currentProjects, projectId, (project) => ({
-          ...project,
-          columns: sortColumns(
-            project.columns.map((column) => {
-              const remainingTasks = column.tasks.filter((task) => task.id !== taskId);
-
-              if (column.id === updatedTask.columnId) {
-                return {
-                  ...column,
-                  tasks: [...remainingTasks, updatedTask].sort(
-                    (left, right) => left.position - right.position
-                  )
-                };
-              }
-
-              return {
-                ...column,
-                tasks: remainingTasks
-              };
-            })
+        updateProjectInList(currentProjects, projectId, (project) =>
+          reorderProjectTasks(
+            project,
+            taskId,
+            updatedTask.columnId,
+            updatedTask.position,
+            updatedTask
           )
-        }))
+        )
       );
       setError('');
     } catch (requestError) {

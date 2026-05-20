@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { useMemo, useState } from 'react';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
 
@@ -30,16 +32,94 @@ function getColumnTone(name) {
   return name.toLowerCase().replace(/\s+/g, '-');
 }
 
-function buildColumnLookup(columns) {
-  return columns.reduce((lookup, column, index) => {
-    lookup[column.id] = {
-      index,
-      previousColumnId: columns[index - 1]?.id || '',
-      nextColumnId: columns[index + 1]?.id || ''
-    };
+function getColumnDroppableId(columnId) {
+  return `column-${columnId}`;
+}
 
-    return lookup;
-  }, {});
+function getTaskDraggableId(taskId) {
+  return `task-${taskId}`;
+}
+
+function DroppableColumn({
+  column,
+  isActive,
+  children
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: getColumnDroppableId(column.id),
+    data: {
+      columnId: column.id,
+      type: 'column'
+    }
+  });
+
+  return (
+    <section
+      ref={setNodeRef}
+      className={`board-column ${isActive ? 'board-column--active' : ''} ${
+        isOver ? 'board-column--over' : ''
+      } board-column--${getColumnTone(column.name)}`}
+    >
+      {children(isOver)}
+    </section>
+  );
+}
+
+function TaskCard({
+  task,
+  columnId,
+  isEditing,
+  isDragging,
+  children
+}) {
+  const draggableId = getTaskDraggableId(task.id);
+  const { attributes, listeners, setNodeRef: setDraggableNodeRef, transform, isDragging: isDraggingCard } = useDraggable({
+    id: draggableId,
+    data: {
+      taskId: task.id,
+      columnId,
+      type: 'task'
+    },
+    disabled: isEditing
+  });
+  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
+    id: draggableId,
+    data: {
+      taskId: task.id,
+      columnId,
+      type: 'task'
+    }
+  });
+
+  const style = transform
+    ? {
+        transform: CSS.Translate.toString(transform)
+      }
+    : undefined;
+
+  const setNodeRef = (node) => {
+    setDraggableNodeRef(node);
+    setDroppableNodeRef(node);
+  };
+
+  return (
+    <article
+      ref={setNodeRef}
+      style={style}
+      className={`task-card ${
+        isDragging || isDraggingCard ? 'task-card--dragging' : ''
+      } ${isOver && !isDragging ? 'task-card--over' : ''}`}
+    >
+      {children({
+        dragHandleProps: isEditing
+          ? {}
+          : {
+              ...attributes,
+              ...listeners
+            }
+      })}
+    </article>
+  );
 }
 
 function BoardWorkspace({
@@ -66,13 +146,26 @@ function BoardWorkspace({
     labels: '',
     dueDate: ''
   });
-  const [dragState, setDragState] = useState({
-    taskId: '',
-    fromColumnId: '',
-    overColumnId: ''
-  });
+  const [activeDragTaskId, setActiveDragTaskId] = useState('');
+  const [overColumnId, setOverColumnId] = useState('');
 
-  const columnLookup = selectedProject ? buildColumnLookup(selectedProject.columns) : {};
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8
+      }
+    })
+  );
+
+  const activeDragTask = useMemo(() => {
+    if (!selectedProject || !activeDragTaskId) {
+      return null;
+    }
+
+    return selectedProject.columns
+      .flatMap((column) => column.tasks)
+      .find((task) => task.id === activeDragTaskId) || null;
+  }, [activeDragTaskId, selectedProject]);
 
   const handleTaskChange = (columnId, field, value) => {
     setTaskForms((currentForms) => ({
@@ -216,39 +309,17 @@ function BoardWorkspace({
     }
   };
 
-  const handleDragStart = (taskId, fromColumnId) => {
-    setDragState({
-      taskId,
-      fromColumnId,
-      overColumnId: fromColumnId
-    });
+  const handleDragStart = (event) => {
+    const taskId = event.active.data.current?.taskId || '';
+    const fromColumnId = event.active.data.current?.columnId || '';
+
+    setActiveDragTaskId(taskId);
+    setOverColumnId(fromColumnId);
   };
 
   const handleDragEnd = () => {
-    setDragState({
-      taskId: '',
-      fromColumnId: '',
-      overColumnId: ''
-    });
-  };
-
-  const handleDragOverColumn = (event, columnId) => {
-    event.preventDefault();
-
-    setDragState((currentState) => ({
-      ...currentState,
-      overColumnId: columnId
-    }));
-  };
-
-  const handleDropTask = async (columnId) => {
-    if (!dragState.taskId || !dragState.fromColumnId || dragState.fromColumnId === columnId) {
-      handleDragEnd();
-      return;
-    }
-
-    await handleMoveTask(dragState.taskId, columnId);
-    handleDragEnd();
+    setActiveDragTaskId('');
+    setOverColumnId('');
   };
 
   const toggleTaskComposer = (columnId) => {
@@ -268,6 +339,53 @@ function BoardWorkspace({
     });
   };
 
+  const handleDragOver = (event) => {
+    const nextColumnId = event.over?.data.current?.columnId || '';
+
+    setOverColumnId(nextColumnId);
+  };
+
+  const handleDropTask = async (event) => {
+    const taskId = event.active.data.current?.taskId || '';
+    const fromColumnId = event.active.data.current?.columnId || '';
+    const overData = event.over?.data.current;
+    const targetColumnId = overData?.columnId || '';
+
+    if (!taskId || !fromColumnId || !targetColumnId) {
+      handleDragEnd();
+      return;
+    }
+
+    let targetIndex;
+    const targetColumn = selectedProject?.columns.find((column) => column.id === targetColumnId);
+
+    if (overData?.type === 'task') {
+      if (overData.taskId === taskId) {
+        handleDragEnd();
+        return;
+      }
+
+      targetIndex = targetColumn?.tasks.findIndex((task) => task.id === overData.taskId);
+
+      if (targetIndex !== undefined && targetIndex < 0) {
+        targetIndex = undefined;
+      }
+    } else if (overData?.type === 'column' && fromColumnId === targetColumnId) {
+      targetIndex = targetColumn?.tasks.length;
+    }
+
+    if (
+      fromColumnId === targetColumnId &&
+      (targetIndex === undefined || targetIndex < 0)
+    ) {
+      handleDragEnd();
+      return;
+    }
+
+    await handleMoveTask(taskId, targetColumnId, targetIndex);
+    handleDragEnd();
+  };
+
   return (
     <section className="dashboard-stack">
       <section className="board-shell">
@@ -281,6 +399,7 @@ function BoardWorkspace({
                   'Manage tasks, priorities, due dates, and delivery in one focused space.'
                 : 'Select a project in the dashboard before managing the board.'}
             </p>
+            {selectedProject ? <p className="board-instruction">Drag cards between columns to update progress.</p> : null}
           </div>
 
           {isLoading ? <p className="status-copy">Loading projects...</p> : null}
@@ -289,296 +408,331 @@ function BoardWorkspace({
         </article>
 
         {selectedProject ? (
-          <div className="board-preview board-preview--full">
-            {selectedProject.columns.map((column) => (
-              <section
-                key={column.id}
-                className={`board-column ${
-                  dragState.overColumnId === column.id ? 'board-column--active' : ''
-                } board-column--${getColumnTone(column.name)}`}
-                onDragOver={(event) => handleDragOverColumn(event, column.id)}
-                onDrop={() => handleDropTask(column.id)}
-              >
-                <header className="board-column-header">
-                  <h3>{column.name}</h3>
-                  <span>{column.tasks.length} cards</span>
-                </header>
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDropTask}
+            onDragCancel={handleDragEnd}
+          >
+            <div className="board-preview board-preview--full">
+              {selectedProject.columns.map((column) => (
+                <DroppableColumn
+                  key={column.id}
+                  column={column}
+                  isActive={overColumnId === column.id}
+                >
+                  {(isOver) => (
+                    <>
+                      <header className="board-column-header">
+                        <h3>{column.name}</h3>
+                        <span>{column.tasks.length} cards</span>
+                      </header>
 
-                <div className="board-column-body board-column-body--stack">
-                  {column.tasks.length === 0 ? (
-                    <p className="drop-hint">
-                      {dragState.taskId ? 'Drop a task here' : 'No tasks yet.'}
-                    </p>
-                  ) : (
-                    column.tasks.map((task) => (
-                      <article
-                        key={task.id}
-                        className={`task-card ${
-                          dragState.taskId === task.id ? 'task-card--dragging' : ''
+                      <div
+                        className={`board-column-body board-column-body--stack ${
+                          isOver ? 'board-column-body--over' : ''
                         }`}
-                        draggable={editingTaskId !== task.id}
-                        onDragStart={() => handleDragStart(task.id, column.id)}
-                        onDragEnd={handleDragEnd}
                       >
-                        {editingTaskId === task.id ? (
-                          <form
-                            className="form-grid task-edit-form"
-                            onSubmit={(event) => handleUpdateTask(event, task.id)}
-                          >
-                            <label>
-                              <span>Task title</span>
-                              <input
-                                type="text"
-                                name="title"
-                                value={editingValues.title}
-                                onChange={handleEditingValueChange}
-                              />
-                            </label>
-
-                            <label>
-                              <span>Description</span>
-                              <textarea
-                                name="description"
-                                rows="3"
-                                value={editingValues.description}
-                                onChange={handleEditingValueChange}
-                              />
-                            </label>
-
-                            <div className="task-meta-grid">
-                              <label>
-                                <span>Priority</span>
-                                <select
-                                  name="priority"
-                                  value={editingValues.priority}
-                                  onChange={handleEditingValueChange}
-                                >
-                                  {priorityOptions.map((option) => (
-                                    <option key={option} value={option}>
-                                      {option}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-
-                              <label>
-                                <span>Due date</span>
-                                <input
-                                  type="date"
-                                  name="dueDate"
-                                  value={editingValues.dueDate}
-                                  onChange={handleEditingValueChange}
-                                />
-                              </label>
-                            </div>
-
-                            <label>
-                              <span>Labels</span>
-                              <input
-                                type="text"
-                                name="labels"
-                                placeholder="design, frontend"
-                                value={editingValues.labels}
-                                onChange={handleEditingValueChange}
-                              />
-                            </label>
-
-                            <div className="task-actions">
-                              <button
-                                type="submit"
-                                className="primary-button"
-                                disabled={isUpdatingTask}
-                              >
-                                {isUpdatingTask ? 'Saving...' : 'Save'}
-                              </button>
-                              <button
-                                type="button"
-                                className="ghost-button ghost-button--action"
-                                onClick={cancelEditingTask}
-                                disabled={isUpdatingTask}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                            {taskFormError ? <p className="form-error">{taskFormError}</p> : null}
-                          </form>
+                        {column.tasks.length === 0 ? (
+                          <p className="drop-hint">
+                            {activeDragTaskId ? 'Drop a task here' : 'No tasks yet.'}
+                          </p>
                         ) : (
-                          <div className="task-card-copy">
-                            <div className="task-card-top">
-                              <h4>{task.title}</h4>
-                              <span className="task-grip">Drag</span>
-                            </div>
-                            <div className="task-meta-row">
-                              <span
-                                className={`priority-badge priority-badge--${
-                                  task.priority || 'medium'
-                                }`}
-                              >
-                                {task.priority || 'medium'}
-                              </span>
-                              <span className="due-date-badge">
-                                {formatDueDate(task.dueDate)}
-                              </span>
-                            </div>
-                            <p>{task.description || 'No description yet.'}</p>
-                            {task.labels?.length ? (
-                              <div className="label-row">
-                                {task.labels.map((label) => (
-                                  <span key={label} className="label-chip">
-                                    {label}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
+                          column.tasks.map((task) => (
+                            <TaskCard
+                              key={task.id}
+                              task={task}
+                              columnId={column.id}
+                              isEditing={editingTaskId === task.id}
+                              isDragging={activeDragTaskId === task.id}
+                            >
+                              {({ dragHandleProps }) => {
+                                if (editingTaskId === task.id) {
+                                  return (
+                                    <form
+                                      className="form-grid task-edit-form"
+                                      onSubmit={(event) => handleUpdateTask(event, task.id)}
+                                    >
+                                      <label>
+                                        <span>Task title</span>
+                                        <input
+                                          type="text"
+                                          name="title"
+                                          value={editingValues.title}
+                                          onChange={handleEditingValueChange}
+                                        />
+                                      </label>
+
+                                      <label>
+                                        <span>Description</span>
+                                        <textarea
+                                          name="description"
+                                          rows="3"
+                                          value={editingValues.description}
+                                          onChange={handleEditingValueChange}
+                                        />
+                                      </label>
+
+                                      <div className="task-meta-grid">
+                                        <label>
+                                          <span>Priority</span>
+                                          <select
+                                            name="priority"
+                                            value={editingValues.priority}
+                                            onChange={handleEditingValueChange}
+                                          >
+                                            {priorityOptions.map((option) => (
+                                              <option key={option} value={option}>
+                                                {option}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </label>
+
+                                        <label>
+                                          <span>Due date</span>
+                                          <input
+                                            type="date"
+                                            name="dueDate"
+                                            value={editingValues.dueDate}
+                                            onChange={handleEditingValueChange}
+                                          />
+                                        </label>
+                                      </div>
+
+                                      <label>
+                                        <span>Labels</span>
+                                        <input
+                                          type="text"
+                                          name="labels"
+                                          placeholder="design, frontend"
+                                          value={editingValues.labels}
+                                          onChange={handleEditingValueChange}
+                                        />
+                                      </label>
+
+                                      <div className="task-actions">
+                                        <button
+                                          type="submit"
+                                          className="primary-button"
+                                          disabled={isUpdatingTask}
+                                        >
+                                          {isUpdatingTask ? 'Saving...' : 'Save'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="ghost-button ghost-button--action"
+                                          onClick={cancelEditingTask}
+                                          disabled={isUpdatingTask}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                      {taskFormError ? <p className="form-error">{taskFormError}</p> : null}
+                                    </form>
+                                  );
+                                }
+
+                                return (
+                                  <>
+                                    <div className="task-card-copy">
+                                      <div className="task-card-top">
+                                        <h4>{task.title}</h4>
+                                        <button
+                                          type="button"
+                                          className="task-grip"
+                                          aria-label={`Drag task ${task.title}`}
+                                          {...dragHandleProps}
+                                        >
+                                          <span className="task-grip__dots" aria-hidden="true">
+                                            ::
+                                          </span>
+                                          Move
+                                        </button>
+                                      </div>
+                                      <div className="task-meta-row">
+                                        <span
+                                          className={`priority-badge priority-badge--${
+                                            task.priority || 'medium'
+                                          }`}
+                                        >
+                                          {task.priority || 'medium'}
+                                        </span>
+                                        <span className="due-date-badge">
+                                          {formatDueDate(task.dueDate)}
+                                        </span>
+                                      </div>
+                                      <p>{task.description || 'No description yet.'}</p>
+                                      {task.labels?.length ? (
+                                        <div className="label-row">
+                                          {task.labels.map((label) => (
+                                            <span key={label} className="label-chip">
+                                              {label}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : null}
+                                    </div>
+
+                                    <div className="task-actions">
+                                      <button
+                                        type="button"
+                                        className="ghost-button ghost-button--action"
+                                        disabled={isUpdatingTask || isDeletingTask}
+                                        onClick={() => startEditingTask(task)}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="ghost-button ghost-button--action ghost-button--danger-solid"
+                                        disabled={isUpdatingTask || isDeletingTask}
+                                        onClick={() => handleDeleteTask(task.id)}
+                                      >
+                                        {isDeletingTask ? 'Deleting...' : 'Delete'}
+                                      </button>
+                                    </div>
+                                  </>
+                                );
+                              }}
+                            </TaskCard>
+                          ))
                         )}
+                      </div>
 
-                        <div className="task-actions">
-                          <button
-                            type="button"
-                            className="ghost-button ghost-button--action"
-                            disabled={isUpdatingTask || isDeletingTask}
-                            onClick={() => startEditingTask(task)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="ghost-button ghost-button--action ghost-button--danger-solid"
-                            disabled={isUpdatingTask || isDeletingTask}
-                            onClick={() => handleDeleteTask(task.id)}
-                          >
-                            {isDeletingTask ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-
-                        <div className="task-move-row">
-                          <button
-                            type="button"
-                            className="ghost-button ghost-button--panel"
-                            disabled={
-                              isUpdatingTask || !columnLookup[column.id]?.previousColumnId
-                            }
-                            onClick={() =>
-                              handleMoveTask(task.id, columnLookup[column.id].previousColumnId)
-                            }
-                          >
-                            Move left
-                          </button>
-                          <button
-                            type="button"
-                            className="ghost-button ghost-button--panel"
-                            disabled={isUpdatingTask || !columnLookup[column.id]?.nextColumnId}
-                            onClick={() =>
-                              handleMoveTask(task.id, columnLookup[column.id].nextColumnId)
-                            }
-                          >
-                            Move right
-                          </button>
-                        </div>
-                      </article>
-                    ))
-                  )}
-                </div>
-
-                <div className="column-footer">
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--panel"
-                    onClick={() => toggleTaskComposer(column.id)}
-                  >
-                    {openTaskComposerByColumn[column.id] ? 'Close composer' : 'Add task'}
-                  </button>
-                </div>
-
-                {openTaskComposerByColumn[column.id] ? (
-                  <form
-                    className="form-grid board-task-form"
-                    onSubmit={(event) => handleTaskSubmit(event, column.id)}
-                  >
-                    <label>
-                      <span>Task title</span>
-                      <input
-                        type="text"
-                        name={`task-title-${column.id}`}
-                        placeholder={`Add a task to ${column.name}`}
-                        value={taskForms[column.id]?.title || ''}
-                        onChange={(event) =>
-                          handleTaskChange(column.id, 'title', event.target.value)
-                        }
-                      />
-                    </label>
-
-                    <label>
-                      <span>Description</span>
-                      <textarea
-                        name={`task-description-${column.id}`}
-                        placeholder="Optional details"
-                        value={taskForms[column.id]?.description || ''}
-                        onChange={(event) =>
-                          handleTaskChange(column.id, 'description', event.target.value)
-                        }
-                        rows="3"
-                      />
-                    </label>
-
-                    <div className="task-meta-grid">
-                      <label>
-                        <span>Priority</span>
-                        <select
-                          name={`task-priority-${column.id}`}
-                          value={taskForms[column.id]?.priority || 'medium'}
-                          onChange={(event) =>
-                            handleTaskChange(column.id, 'priority', event.target.value)
-                          }
+                      <div className="column-footer">
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button--panel"
+                          onClick={() => toggleTaskComposer(column.id)}
                         >
-                          {priorityOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                          {openTaskComposerByColumn[column.id] ? 'Close composer' : 'Add task'}
+                        </button>
+                      </div>
 
-                      <label>
-                        <span>Due date</span>
-                        <input
-                          type="date"
-                          name={`task-due-date-${column.id}`}
-                          value={taskForms[column.id]?.dueDate || ''}
-                          onChange={(event) =>
-                            handleTaskChange(column.id, 'dueDate', event.target.value)
-                          }
-                        />
-                      </label>
+                      {openTaskComposerByColumn[column.id] ? (
+                        <form
+                          className="form-grid board-task-form"
+                          onSubmit={(event) => handleTaskSubmit(event, column.id)}
+                        >
+                          <label>
+                            <span>Task title</span>
+                            <input
+                              type="text"
+                              name={`task-title-${column.id}`}
+                              placeholder={`Add a task to ${column.name}`}
+                              value={taskForms[column.id]?.title || ''}
+                              onChange={(event) =>
+                                handleTaskChange(column.id, 'title', event.target.value)
+                              }
+                            />
+                          </label>
+
+                          <label>
+                            <span>Description</span>
+                            <textarea
+                              name={`task-description-${column.id}`}
+                              placeholder="Optional details"
+                              value={taskForms[column.id]?.description || ''}
+                              onChange={(event) =>
+                                handleTaskChange(column.id, 'description', event.target.value)
+                              }
+                              rows="3"
+                            />
+                          </label>
+
+                          <div className="task-meta-grid">
+                            <label>
+                              <span>Priority</span>
+                              <select
+                                name={`task-priority-${column.id}`}
+                                value={taskForms[column.id]?.priority || 'medium'}
+                                onChange={(event) =>
+                                  handleTaskChange(column.id, 'priority', event.target.value)
+                                }
+                              >
+                                {priorityOptions.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label>
+                              <span>Due date</span>
+                              <input
+                                type="date"
+                                name={`task-due-date-${column.id}`}
+                                value={taskForms[column.id]?.dueDate || ''}
+                                onChange={(event) =>
+                                  handleTaskChange(column.id, 'dueDate', event.target.value)
+                                }
+                              />
+                            </label>
+                          </div>
+
+                          <label>
+                            <span>Labels</span>
+                            <input
+                              type="text"
+                              name={`task-labels-${column.id}`}
+                              placeholder="design, frontend"
+                              value={taskForms[column.id]?.labels || ''}
+                              onChange={(event) =>
+                                handleTaskChange(column.id, 'labels', event.target.value)
+                              }
+                            />
+                          </label>
+
+                          <button
+                            type="submit"
+                            className="primary-button"
+                            disabled={isCreatingTask}
+                          >
+                            {isCreatingTask ? 'Saving task...' : 'Add task'}
+                          </button>
+                          {taskFormError ? <p className="form-error">{taskFormError}</p> : null}
+                        </form>
+                      ) : null}
+                    </>
+                  )}
+                </DroppableColumn>
+              ))}
+            </div>
+
+            <DragOverlay>
+              {activeDragTask ? (
+                <article className="task-card task-card--overlay">
+                  <div className="task-card-copy">
+                    <div className="task-card-top">
+                      <h4>{activeDragTask.title}</h4>
+                      <span className="task-grip task-grip--static">
+                        <span className="task-grip__dots" aria-hidden="true">
+                          ::
+                        </span>
+                        Move
+                      </span>
                     </div>
-
-                    <label>
-                      <span>Labels</span>
-                      <input
-                        type="text"
-                        name={`task-labels-${column.id}`}
-                        placeholder="design, frontend"
-                        value={taskForms[column.id]?.labels || ''}
-                        onChange={(event) =>
-                          handleTaskChange(column.id, 'labels', event.target.value)
-                        }
-                      />
-                    </label>
-
-                    <button
-                      type="submit"
-                      className="primary-button"
-                      disabled={isCreatingTask}
-                    >
-                      {isCreatingTask ? 'Saving task...' : 'Add task'}
-                    </button>
-                    {taskFormError ? <p className="form-error">{taskFormError}</p> : null}
-                  </form>
-                ) : null}
-              </section>
-            ))}
-          </div>
+                    <div className="task-meta-row">
+                      <span
+                        className={`priority-badge priority-badge--${
+                          activeDragTask.priority || 'medium'
+                        }`}
+                      >
+                        {activeDragTask.priority || 'medium'}
+                      </span>
+                      <span className="due-date-badge">
+                        {formatDueDate(activeDragTask.dueDate)}
+                      </span>
+                    </div>
+                    <p>{activeDragTask.description || 'No description yet.'}</p>
+                  </div>
+                </article>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         ) : (
           <article className="card board-empty">
             <p className="eyebrow">Board</p>
