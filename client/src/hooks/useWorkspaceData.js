@@ -90,7 +90,7 @@ function reorderProjectTasks(project, taskId, targetColumnId, targetIndex, updat
 }
 
 function useWorkspaceData() {
-  const { token } = useAuth();
+  const { token, logout } = useAuth();
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(() => {
     return window.localStorage.getItem(SELECTED_PROJECT_STORAGE_KEY) || '';
@@ -103,6 +103,18 @@ function useWorkspaceData() {
   const [isUpdatingProject, setIsUpdatingProject] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [error, setError] = useState('');
+
+  const handleWorkspaceError = (requestError) => {
+    if (requestError?.status === 401) {
+      logout();
+      setProjects([]);
+      setSelectedProjectId('');
+      setError('');
+      return;
+    }
+
+    setError(requestError.message);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -127,7 +139,7 @@ function useWorkspaceData() {
         }
       } catch (requestError) {
         if (isMounted) {
-          setError(requestError.message);
+          handleWorkspaceError(requestError);
         }
       } finally {
         if (isMounted) {
@@ -170,7 +182,7 @@ function useWorkspaceData() {
       setError('');
       return createdProject;
     } catch (requestError) {
-      setError(requestError.message);
+      handleWorkspaceError(requestError);
       throw requestError;
     } finally {
       setIsCreating(false);
@@ -192,7 +204,7 @@ function useWorkspaceData() {
       setError('');
       return updatedProject;
     } catch (requestError) {
-      setError(requestError.message);
+      handleWorkspaceError(requestError);
       throw requestError;
     } finally {
       setIsUpdatingProject(false);
@@ -219,7 +231,7 @@ function useWorkspaceData() {
       });
       setError('');
     } catch (requestError) {
-      setError(requestError.message);
+      handleWorkspaceError(requestError);
       throw requestError;
     } finally {
       setIsDeletingProject(false);
@@ -251,7 +263,7 @@ function useWorkspaceData() {
       setError('');
       return createdTask;
     } catch (requestError) {
-      setError(requestError.message);
+      handleWorkspaceError(requestError);
       throw requestError;
     } finally {
       setIsCreatingTask(false);
@@ -275,8 +287,10 @@ function useWorkspaceData() {
         )
       );
       setError('');
+      return updatedTask;
     } catch (requestError) {
-      setError(requestError.message);
+      handleWorkspaceError(requestError);
+      throw requestError;
     } finally {
       setIsUpdatingTask(false);
     }
@@ -303,7 +317,7 @@ function useWorkspaceData() {
       setError('');
       return updatedTask;
     } catch (requestError) {
-      setError(requestError.message);
+      handleWorkspaceError(requestError);
       throw requestError;
     } finally {
       setIsUpdatingTask(false);
@@ -328,7 +342,8 @@ function useWorkspaceData() {
       );
       setError('');
     } catch (requestError) {
-      setError(requestError.message);
+      handleWorkspaceError(requestError);
+      throw requestError;
     } finally {
       setIsDeletingTask(false);
     }

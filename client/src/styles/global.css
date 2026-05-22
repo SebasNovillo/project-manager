@@ -482,6 +482,13 @@ textarea {
   line-height: 0.98;
 }
 
+.board-project-bar__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
 .board-project-bar__copy p:last-child {
   margin: 0;
   color: var(--text-muted);
@@ -493,14 +500,78 @@ textarea {
   color: #4d648f;
 }
 
+.board-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.board-stat-chip {
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 32, 58, 0.08);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.board-stat-chip strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1;
+  margin-bottom: 0.3rem;
+}
+
+.board-stat-chip span {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
 .board-preview {
   display: grid;
-  grid-template-columns: repeat(5, minmax(280px, 1fr));
+  grid-template-columns: repeat(5, minmax(300px, 1fr));
   gap: 1rem;
   width: 100%;
   overflow-x: auto;
   overflow-y: visible;
   padding-bottom: 0.35rem;
+}
+
+.board-mobile-switcher {
+  display: none;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.board-mobile-switcher__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid rgba(16, 32, 58, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: #35507a;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.board-mobile-switcher__chip strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: rgba(20, 89, 217, 0.08);
+  color: var(--primary-dark);
+  font-size: 0.86rem;
+}
+
+.board-mobile-switcher__chip--active {
+  border-color: rgba(20, 89, 217, 0.24);
+  background: rgba(20, 89, 217, 0.08);
+  color: var(--primary-dark);
 }
 
 .board-column {
@@ -569,6 +640,7 @@ textarea {
 
 .board-column-header h3 {
   font-size: 1.05rem;
+  font-weight: 800;
 }
 
 .board-column-body {
@@ -612,6 +684,7 @@ textarea {
   display: grid;
   align-content: start;
   gap: 0.85rem;
+  min-height: 220px;
 }
 
 .board-column-body--over {
@@ -622,6 +695,11 @@ textarea {
 .column-footer,
 .board-task-form {
   margin-top: 1rem;
+}
+
+.column-footer {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .task-card {
@@ -637,7 +715,13 @@ textarea {
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
-    opacity 160ms ease;
+    opacity 160ms ease,
+    border-color 160ms ease;
+}
+
+.task-card:hover {
+  border-color: rgba(20, 89, 217, 0.12);
+  box-shadow: 0 14px 26px rgba(16, 32, 58, 0.08);
 }
 
 .task-card--dragging {
@@ -664,6 +748,8 @@ textarea {
 .task-card-copy h4 {
   margin: 0 0 0.25rem;
   overflow-wrap: anywhere;
+  font-size: 1.18rem;
+  line-height: 1.2;
 }
 
 .task-card-top {
@@ -687,6 +773,7 @@ textarea {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: grab;
+  flex-shrink: 0;
 }
 
 .task-grip:active {
@@ -780,6 +867,7 @@ textarea {
 
 .drop-hint {
   margin: 0;
+  font-size: 0.95rem;
 }
 
 .task-actions {
@@ -789,8 +877,25 @@ textarea {
   font-size: 0.92rem;
 }
 
+.task-mobile-move {
+  display: none;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.task-mobile-move select {
+  min-width: 0;
+}
+
 .task-edit-form {
   margin-bottom: 0.25rem;
+}
+
+.board-task-form {
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 32, 58, 0.08);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 input:focus,
@@ -818,7 +923,9 @@ select:focus {
   .dashboard-main-grid,
   .summary-metric-grid,
   .summary-metric-grid--compact,
-  .project-creation-form {
+  .project-creation-form,
+  .board-project-bar__content,
+  .board-stat-grid {
     grid-template-columns: 1fr;
   }
 
@@ -834,5 +941,34 @@ select:focus {
 
   .project-directory--wide {
     grid-row: auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .board-mobile-switcher {
+    display: flex;
+  }
+
+  .board-preview {
+    grid-template-columns: 1fr;
+    overflow-x: visible;
+  }
+
+  .board-column {
+    min-width: 0;
+  }
+
+  .task-card-top {
+    align-items: flex-start;
+  }
+
+  .task-grip {
+    padding: 0.24rem 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  .task-mobile-move {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }

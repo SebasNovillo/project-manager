@@ -1,6 +1,6 @@
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
 
@@ -146,8 +146,17 @@ function BoardWorkspace({
     labels: '',
     dueDate: ''
   });
+  const [mobileMoveTargetByTask, setMobileMoveTargetByTask] = useState({});
   const [activeDragTaskId, setActiveDragTaskId] = useState('');
   const [overColumnId, setOverColumnId] = useState('');
+  const [mobileColumnId, setMobileColumnId] = useState('');
+  const [isMobileBoard, setIsMobileBoard] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.innerWidth <= 767;
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -166,6 +175,111 @@ function BoardWorkspace({
       .flatMap((column) => column.tasks)
       .find((task) => task.id === activeDragTaskId) || null;
   }, [activeDragTaskId, selectedProject]);
+  const boardStats = useMemo(() => {
+    if (!selectedProject) {
+      return {
+        totalTasks: 0,
+        inFlow: 0,
+        done: 0
+      };
+    }
+
+    const totalTasks = selectedProject.columns.reduce(
+      (sum, column) => sum + column.tasks.length,
+      0
+    );
+    const doneColumn = selectedProject.columns.find(
+      (column) => column.name.toLowerCase() === 'done'
+    );
+    const done = doneColumn?.tasks.length || 0;
+
+    return {
+      totalTasks,
+      inFlow: Math.max(totalTasks - done, 0),
+      done
+    };
+  }, [selectedProject]);
+  const visibleColumns = useMemo(() => {
+    if (!selectedProject) {
+      return [];
+    }
+
+    if (!isMobileBoard || !mobileColumnId) {
+      return selectedProject.columns;
+    }
+
+    return selectedProject.columns.filter((column) => column.id === mobileColumnId);
+  }, [isMobileBoard, mobileColumnId, selectedProject]);
+  const moveTargetsByColumnId = useMemo(() => {
+    if (!selectedProject) {
+      return {};
+    }
+
+    return selectedProject.columns.reduce((lookup, column) => {
+      lookup[column.id] = selectedProject.columns.filter(
+        (candidate) => candidate.id !== column.id
+      );
+
+      return lookup;
+    }, {});
+  }, [selectedProject]);
+
+  useEffect(() => {
+    if (!taskFormSuccess) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setTaskFormSuccess('');
+    }, 2200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [taskFormSuccess]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+
+    const syncViewport = (event) => {
+      setIsMobileBoard(event.matches);
+    };
+
+    setIsMobileBoard(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncViewport);
+
+      return () => {
+        mediaQuery.removeEventListener('change', syncViewport);
+      };
+    }
+
+    mediaQuery.addListener(syncViewport);
+
+    return () => {
+      mediaQuery.removeListener(syncViewport);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setMobileColumnId('');
+      return;
+    }
+
+    const hasActiveColumn = selectedProject.columns.some(
+      (column) => column.id === mobileColumnId
+    );
+
+    if (!hasActiveColumn) {
+      setMobileColumnId(selectedProject.columns[0]?.id || '');
+    }
+  }, [mobileColumnId, selectedProject]);
 
   const handleTaskChange = (columnId, field, value) => {
     setTaskForms((currentForms) => ({
@@ -201,41 +315,49 @@ function BoardWorkspace({
       return;
     }
 
-    await onCreateTask(selectedProject.id, {
-      title: values.title.trim(),
-      description: values.description,
-      priority: values.priority,
-      labels: normalizeLabels(values.labels),
-      dueDate: values.dueDate,
-      columnId
-    });
-    setTaskFormError('');
-    setTaskFormSuccess('Task created successfully.');
+    try {
+      await onCreateTask(selectedProject.id, {
+        title: values.title.trim(),
+        description: values.description,
+        priority: values.priority,
+        labels: normalizeLabels(values.labels),
+        dueDate: values.dueDate,
+        columnId
+      });
+      setTaskFormError('');
+      setTaskFormSuccess('Task created successfully.');
 
-    setTaskForms((currentForms) => ({
-      ...currentForms,
-      [columnId]: {
-        title: '',
-        description: '',
-        priority: 'medium',
-        labels: '',
-        dueDate: ''
-      }
-    }));
-    setOpenTaskComposerByColumn((currentState) => ({
-      ...currentState,
-      [columnId]: false
-    }));
+      setTaskForms((currentForms) => ({
+        ...currentForms,
+        [columnId]: {
+          title: '',
+          description: '',
+          priority: 'medium',
+          labels: '',
+          dueDate: ''
+        }
+      }));
+      setOpenTaskComposerByColumn((currentState) => ({
+        ...currentState,
+        [columnId]: false
+      }));
+    } catch (requestError) {
+      setTaskFormError(requestError.message || 'Could not create task');
+    }
   };
 
-  const handleMoveTask = async (taskId, columnId) => {
+  const handleMoveTask = async (taskId, columnId, targetIndex) => {
     if (!selectedProject) {
       return;
     }
 
-    await onMoveTask(selectedProject.id, taskId, columnId);
-    setTaskFormError('');
-    setTaskFormSuccess('Task moved successfully.');
+    try {
+      await onMoveTask(selectedProject.id, taskId, columnId, targetIndex);
+      setTaskFormError('');
+      setTaskFormSuccess('Task moved successfully.');
+    } catch (requestError) {
+      setTaskFormError(requestError.message || 'Could not move task');
+    }
   };
 
   const startEditingTask = (task) => {
@@ -285,14 +407,18 @@ function BoardWorkspace({
       return;
     }
 
-    await onUpdateTask(selectedProject.id, taskId, {
-      ...editingValues,
-      title: editingValues.title.trim(),
-      labels: normalizeLabels(editingValues.labels)
-    });
-    setTaskFormError('');
-    setTaskFormSuccess('Task updated successfully.');
-    cancelEditingTask();
+    try {
+      await onUpdateTask(selectedProject.id, taskId, {
+        ...editingValues,
+        title: editingValues.title.trim(),
+        labels: normalizeLabels(editingValues.labels)
+      });
+      setTaskFormError('');
+      setTaskFormSuccess('Task updated successfully.');
+      cancelEditingTask();
+    } catch (requestError) {
+      setTaskFormError(requestError.message || 'Could not update task');
+    }
   };
 
   const handleDeleteTask = async (taskId) => {
@@ -300,12 +426,16 @@ function BoardWorkspace({
       return;
     }
 
-    await onDeleteTask(selectedProject.id, taskId);
-    setTaskFormError('');
-    setTaskFormSuccess('Task deleted successfully.');
+    try {
+      await onDeleteTask(selectedProject.id, taskId);
+      setTaskFormError('');
+      setTaskFormSuccess('Task deleted successfully.');
 
-    if (editingTaskId === taskId) {
-      cancelEditingTask();
+      if (editingTaskId === taskId) {
+        cancelEditingTask();
+      }
+    } catch (requestError) {
+      setTaskFormError(requestError.message || 'Could not delete task');
     }
   };
 
@@ -343,6 +473,25 @@ function BoardWorkspace({
     const nextColumnId = event.over?.data.current?.columnId || '';
 
     setOverColumnId(nextColumnId);
+  };
+
+  const handleMobileMoveTargetChange = (taskId, columnId) => {
+    setMobileMoveTargetByTask((currentTargets) => ({
+      ...currentTargets,
+      [taskId]: columnId
+    }));
+  };
+
+  const handleMobileMove = async (taskId, currentColumnId) => {
+    const availableTargets = moveTargetsByColumnId[currentColumnId] || [];
+    const fallbackTarget = availableTargets[0]?.id || '';
+    const targetColumnId = mobileMoveTargetByTask[taskId] || fallbackTarget;
+
+    if (!targetColumnId) {
+      return;
+    }
+
+    await handleMoveTask(taskId, targetColumnId);
   };
 
   const handleDropTask = async (event) => {
@@ -390,16 +539,39 @@ function BoardWorkspace({
     <section className="dashboard-stack">
       <section className="board-shell">
         <article className="card board-project-bar">
-          <div className="board-project-bar__copy">
-            <p className="eyebrow">Board</p>
-            <h1>{selectedProject ? selectedProject.name : 'Choose a project'}</h1>
-            <p>
-              {selectedProject
-                ? selectedProject.description ||
-                  'Manage tasks, priorities, due dates, and delivery in one focused space.'
-                : 'Select a project in the dashboard before managing the board.'}
-            </p>
-            {selectedProject ? <p className="board-instruction">Drag cards between columns to update progress.</p> : null}
+          <div className="board-project-bar__content">
+            <div className="board-project-bar__copy">
+              <p className="eyebrow">Board</p>
+              <h1>{selectedProject ? selectedProject.name : 'Choose a project'}</h1>
+              <p>
+                {selectedProject
+                  ? selectedProject.description ||
+                    'Manage tasks, priorities, due dates, and delivery in one focused space.'
+                  : 'Select a project in the dashboard before managing the board.'}
+              </p>
+              {selectedProject ? (
+                <p className="board-instruction">
+                  Drag cards between columns to update progress.
+                </p>
+              ) : null}
+            </div>
+
+            {selectedProject ? (
+              <div className="board-stat-grid">
+                <div className="board-stat-chip">
+                  <strong>{boardStats.totalTasks}</strong>
+                  <span>Total cards</span>
+                </div>
+                <div className="board-stat-chip">
+                  <strong>{boardStats.inFlow}</strong>
+                  <span>In flow</span>
+                </div>
+                <div className="board-stat-chip">
+                  <strong>{boardStats.done}</strong>
+                  <span>Done</span>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {isLoading ? <p className="status-copy">Loading projects...</p> : null}
@@ -415,8 +587,26 @@ function BoardWorkspace({
             onDragEnd={handleDropTask}
             onDragCancel={handleDragEnd}
           >
+            {isMobileBoard ? (
+              <div className="board-mobile-switcher" role="tablist" aria-label="Board columns">
+                {selectedProject.columns.map((column) => (
+                  <button
+                    key={column.id}
+                    type="button"
+                    className={`board-mobile-switcher__chip ${
+                      column.id === mobileColumnId ? 'board-mobile-switcher__chip--active' : ''
+                    }`}
+                    onClick={() => setMobileColumnId(column.id)}
+                  >
+                    <span>{column.name}</span>
+                    <strong>{column.tasks.length}</strong>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
             <div className="board-preview board-preview--full">
-              {selectedProject.columns.map((column) => (
+              {visibleColumns.map((column) => (
                 <DroppableColumn
                   key={column.id}
                   column={column}
@@ -593,6 +783,37 @@ function BoardWorkspace({
                                         {isDeletingTask ? 'Deleting...' : 'Delete'}
                                       </button>
                                     </div>
+
+                                    {moveTargetsByColumnId[column.id]?.length ? (
+                                      <div className="task-mobile-move">
+                                        <select
+                                          aria-label={`Move ${task.title} to another column`}
+                                          value={
+                                            mobileMoveTargetByTask[task.id] ||
+                                            moveTargetsByColumnId[column.id][0]?.id ||
+                                            ''
+                                          }
+                                          onChange={(event) =>
+                                            handleMobileMoveTargetChange(task.id, event.target.value)
+                                          }
+                                          disabled={isUpdatingTask}
+                                        >
+                                          {moveTargetsByColumnId[column.id].map((targetColumn) => (
+                                            <option key={targetColumn.id} value={targetColumn.id}>
+                                              {targetColumn.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <button
+                                          type="button"
+                                          className="ghost-button ghost-button--panel"
+                                          disabled={isUpdatingTask}
+                                          onClick={() => handleMobileMove(task.id, column.id)}
+                                        >
+                                          Move to
+                                        </button>
+                                      </div>
+                                    ) : null}
                                   </>
                                 );
                               }}
