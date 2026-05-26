@@ -283,6 +283,10 @@ function BoardWorkspace({
   }, [mobileColumnId, selectedProject]);
 
   const handleTaskChange = (columnId, field, value) => {
+    if (taskFormError) {
+      setTaskFormError('');
+    }
+
     setTaskForms((currentForms) => ({
       ...currentForms,
       [columnId]: {
@@ -389,6 +393,10 @@ function BoardWorkspace({
 
   const handleEditingValueChange = (event) => {
     const { name, value } = event.target;
+
+    if (taskFormError) {
+      setTaskFormError('');
+    }
 
     setEditingValues((currentValues) => ({
       ...currentValues,
@@ -592,7 +600,18 @@ function BoardWorkspace({
 
           {isLoading ? <p className="status-copy">Loading projects...</p> : null}
           {error ? <p className="form-error">{error}</p> : null}
-          {taskFormSuccess ? <p className="form-success">{taskFormSuccess}</p> : null}
+          {taskFormError || taskFormSuccess ? (
+            <div className="board-feedback" aria-live="polite">
+              {taskFormError ? (
+                <p className="board-feedback__item board-feedback__item--error">{taskFormError}</p>
+              ) : null}
+              {taskFormSuccess ? (
+                <p className="board-feedback__item board-feedback__item--success">
+                  {taskFormSuccess}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </article>
 
         {selectedProject ? (
@@ -642,7 +661,7 @@ function BoardWorkspace({
                       >
                         {column.tasks.length === 0 ? (
                           <p className="drop-hint">
-                            {activeDragTaskId ? 'Drop a task here' : 'No tasks yet.'}
+                            {activeDragTaskId ? 'Drop a task here' : 'No tasks in this stage yet.'}
                           </p>
                         ) : (
                           column.tasks.map((task) => (
@@ -736,7 +755,6 @@ function BoardWorkspace({
                                           Cancel
                                         </button>
                                       </div>
-                                      {taskFormError ? <p className="form-error">{taskFormError}</p> : null}
                                     </form>
                                   );
                                 }
@@ -847,7 +865,7 @@ function BoardWorkspace({
                           className="ghost-button ghost-button--panel"
                           onClick={() => toggleTaskComposer(column.id)}
                         >
-                          {openTaskComposerByColumn[column.id] ? 'Close composer' : 'Add task'}
+                          {openTaskComposerByColumn[column.id] ? 'Cancel' : 'Add task'}
                         </button>
                       </div>
 
@@ -881,6 +899,10 @@ function BoardWorkspace({
                               rows="3"
                             />
                           </label>
+
+                          <p className="task-form-note">
+                            This task will be created directly in <strong>{column.name}</strong>.
+                          </p>
 
                           <div className="task-meta-grid">
                             <label>
@@ -933,7 +955,6 @@ function BoardWorkspace({
                           >
                             {isCreatingTask ? 'Saving task...' : 'Add task'}
                           </button>
-                          {taskFormError ? <p className="form-error">{taskFormError}</p> : null}
                         </form>
                       ) : null}
                     </>

@@ -155,7 +155,7 @@ function DashboardWorkspace({
           {error ? <p className="form-error">{error}</p> : null}
           {!isLoading && projects.length === 0 ? (
             <p className="status-copy">
-              No projects yet. Create your first one to generate the default structure.
+              No projects yet. Your first project will generate the default five-stage board.
             </p>
           ) : null}
 
@@ -190,7 +190,7 @@ function DashboardWorkspace({
             <p>
               {selectedProject
                 ? selectedProject.description || 'Open the board to manage tasks and delivery.'
-                : 'Create a project to start working with the board.'}
+                : 'Create a project to start planning, tracking, and delivering work.'}
             </p>
           </div>
 
