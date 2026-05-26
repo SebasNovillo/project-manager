@@ -944,7 +944,7 @@ select:focus {
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px) and (orientation: portrait) {
   .board-mobile-switcher {
     display: flex;
   }

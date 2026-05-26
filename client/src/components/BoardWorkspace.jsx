@@ -155,7 +155,7 @@ function BoardWorkspace({
       return false;
     }
 
-    return window.innerWidth <= 767;
+    return window.matchMedia('(max-width: 767px) and (orientation: portrait)').matches;
   });
 
   const sensors = useSensors(
@@ -243,7 +243,7 @@ function BoardWorkspace({
       return undefined;
     }
 
-    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const mediaQuery = window.matchMedia('(max-width: 767px) and (orientation: portrait)');
 
     const syncViewport = (event) => {
       setIsMobileBoard(event.matches);
