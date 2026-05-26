@@ -70,6 +70,7 @@ function TaskCard({
   columnId,
   isEditing,
   isDragging,
+  isDragEnabled,
   children
 }) {
   const draggableId = getTaskDraggableId(task.id);
@@ -80,7 +81,7 @@ function TaskCard({
       columnId,
       type: 'task'
     },
-    disabled: isEditing
+    disabled: isEditing || !isDragEnabled
   });
   const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
     id: draggableId,
@@ -111,7 +112,7 @@ function TaskCard({
       } ${isOver && !isDragging ? 'task-card--over' : ''}`}
     >
       {children({
-        dragHandleProps: isEditing
+        dragHandleProps: isEditing || !isDragEnabled
           ? {}
           : {
               ...attributes,
@@ -440,6 +441,10 @@ function BoardWorkspace({
   };
 
   const handleDragStart = (event) => {
+    if (isMobileBoard) {
+      return;
+    }
+
     const taskId = event.active.data.current?.taskId || '';
     const fromColumnId = event.active.data.current?.columnId || '';
 
@@ -470,6 +475,10 @@ function BoardWorkspace({
   };
 
   const handleDragOver = (event) => {
+    if (isMobileBoard) {
+      return;
+    }
+
     const nextColumnId = event.over?.data.current?.columnId || '';
 
     setOverColumnId(nextColumnId);
@@ -495,6 +504,11 @@ function BoardWorkspace({
   };
 
   const handleDropTask = async (event) => {
+    if (isMobileBoard) {
+      handleDragEnd();
+      return;
+    }
+
     const taskId = event.active.data.current?.taskId || '';
     const fromColumnId = event.active.data.current?.columnId || '';
     const overData = event.over?.data.current;
@@ -551,7 +565,9 @@ function BoardWorkspace({
               </p>
               {selectedProject ? (
                 <p className="board-instruction">
-                  Drag cards between columns to update progress.
+                  {isMobileBoard
+                    ? 'Use the column selector and the Move to control to update progress.'
+                    : 'Drag cards between columns to update progress.'}
                 </p>
               ) : null}
             </div>
@@ -636,6 +652,7 @@ function BoardWorkspace({
                               columnId={column.id}
                               isEditing={editingTaskId === task.id}
                               isDragging={activeDragTaskId === task.id}
+                              isDragEnabled={!isMobileBoard}
                             >
                               {({ dragHandleProps }) => {
                                 if (editingTaskId === task.id) {
@@ -729,17 +746,19 @@ function BoardWorkspace({
                                     <div className="task-card-copy">
                                       <div className="task-card-top">
                                         <h4>{task.title}</h4>
-                                        <button
-                                          type="button"
-                                          className="task-grip"
-                                          aria-label={`Drag task ${task.title}`}
-                                          {...dragHandleProps}
-                                        >
-                                          <span className="task-grip__dots" aria-hidden="true">
-                                            ::
-                                          </span>
-                                          Move
-                                        </button>
+                                        {!isMobileBoard ? (
+                                          <button
+                                            type="button"
+                                            className="task-grip"
+                                            aria-label={`Drag task ${task.title}`}
+                                            {...dragHandleProps}
+                                          >
+                                            <span className="task-grip__dots" aria-hidden="true">
+                                              ::
+                                            </span>
+                                            Move
+                                          </button>
+                                        ) : null}
                                       </div>
                                       <div className="task-meta-row">
                                         <span
