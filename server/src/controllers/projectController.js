@@ -1,5 +1,7 @@
 import asyncHandler from '../utils/asyncHandler.js';
 import {
+  completeSprintForUser,
+  createSprintForProject,
   createProjectForUser,
   deleteProjectForUser,
   getProjectsForUser,
@@ -32,4 +34,20 @@ export const deleteProject = asyncHandler(async (request, response) => {
   await deleteProjectForUser(request.params.projectId, request.user.id);
 
   response.status(204).send();
+});
+
+export const createSprint = asyncHandler(async (request, response) => {
+  const sprint = await createSprintForProject(
+    request.user.id,
+    request.params.projectId,
+    request.body
+  );
+
+  response.status(201).json(sprint);
+});
+
+export const completeSprint = asyncHandler(async (request, response) => {
+  const sprint = await completeSprintForUser(request.user.id, request.params.sprintId);
+
+  response.json(sprint);
 });

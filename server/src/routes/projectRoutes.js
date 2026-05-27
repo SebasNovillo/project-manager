@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import {
+  completeSprint,
+  createSprint,
   createProject,
   deleteProject,
   getProjects,
@@ -18,5 +20,7 @@ router.patch('/:projectId', updateProject);
 router.put('/:projectId', updateProject);
 router.delete('/:projectId', deleteProject);
 router.post('/:projectId/tasks', createTask);
+router.post('/:projectId/sprints', createSprint);
+router.patch('/sprints/:sprintId/complete', completeSprint);
 
 export default router;

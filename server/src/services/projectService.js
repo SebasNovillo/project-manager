@@ -1,25 +1,39 @@
 import prisma from '../utils/prisma.js';
 import { buildSeededColumns } from '../utils/projectSeed.js';
 
-export async function getProjectsForUser(userId) {
-  return prisma.project.findMany({
-    where: {
-      ownerId: userId
-    },
+const projectDetailInclude = {
+  columns: {
     include: {
-      columns: {
-        include: {
-          tasks: {
-            orderBy: {
-              position: 'asc'
-            }
-          }
-        },
+      tasks: {
         orderBy: {
           position: 'asc'
         }
       }
     },
+    orderBy: {
+      position: 'asc'
+    }
+  },
+  sprints: {
+    include: {
+      tasks: {
+        select: {
+          id: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  }
+};
+
+export async function getProjectsForUser(userId) {
+  return prisma.project.findMany({
+    where: {
+      ownerId: userId
+    },
+    include: projectDetailInclude,
     orderBy: {
       createdAt: 'desc'
     }
@@ -45,20 +59,7 @@ export async function createProjectForUser(userId, payload) {
         create: buildSeededColumns()
       }
     },
-    include: {
-      columns: {
-        include: {
-          tasks: {
-            orderBy: {
-              position: 'asc'
-            }
-          }
-        },
-        orderBy: {
-          position: 'asc'
-        }
-      }
-    }
+    include: projectDetailInclude
   });
 }
 
@@ -99,20 +100,7 @@ export async function updateProjectForUser(projectId, userId, payload) {
       name,
       description
     },
-    include: {
-      columns: {
-        include: {
-          tasks: {
-            orderBy: {
-              position: 'asc'
-            }
-          }
-        },
-        orderBy: {
-          position: 'asc'
-        }
-      }
-    }
+    include: projectDetailInclude
   });
 }
 
@@ -122,6 +110,99 @@ export async function deleteProjectForUser(projectId, userId) {
   await prisma.project.delete({
     where: {
       id: projectId
+    }
+  });
+}
+
+export async function createSprintForProject(userId, projectId, payload) {
+  await getOwnedProject(projectId, userId);
+
+  const name = payload.name?.trim();
+  const goal = payload.goal?.trim() || null;
+  const endDateValue = payload.endDate;
+  const parsedEndDate =
+    endDateValue === undefined || endDateValue === null || endDateValue === ''
+      ? null
+      : new Date(endDateValue);
+
+  if (!name) {
+    const error = new Error('Sprint name is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (parsedEndDate && Number.isNaN(parsedEndDate.getTime())) {
+    const error = new Error('Sprint end date is invalid');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const activeSprint = await prisma.sprint.findFirst({
+    where: {
+      projectId,
+      status: 'active'
+    }
+  });
+
+  if (activeSprint) {
+    const error = new Error('Complete the current active sprint before starting a new one');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return prisma.sprint.create({
+    data: {
+      name,
+      goal,
+      endDate: parsedEndDate,
+      projectId,
+      status: 'active'
+    },
+    include: {
+      tasks: {
+        select: {
+          id: true
+        }
+      }
+    }
+  });
+}
+
+export async function completeSprintForUser(userId, sprintId) {
+  const sprint = await prisma.sprint.findFirst({
+    where: {
+      id: sprintId,
+      project: {
+        ownerId: userId
+      }
+    }
+  });
+
+  if (!sprint) {
+    const error = new Error('Sprint not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (sprint.status !== 'active') {
+    const error = new Error('Only an active sprint can be completed');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return prisma.sprint.update({
+    where: {
+      id: sprintId
+    },
+    data: {
+      status: 'completed'
+    },
+    include: {
+      tasks: {
+        select: {
+          id: true
+        }
+      }
     }
   });
 }

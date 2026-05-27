@@ -125,6 +125,7 @@ function TaskCard({
 
 function BoardWorkspace({
   selectedProject,
+  sprintId,
   isLoading,
   error,
   onCreateTask,
@@ -185,32 +186,61 @@ function BoardWorkspace({
       };
     }
 
-    const totalTasks = selectedProject.columns.reduce(
-      (sum, column) => sum + column.tasks.length,
-      0
+    const scopedTasks = selectedProject.columns.flatMap((column) =>
+      column.tasks.filter((task) => !sprintId || task.sprintId === sprintId)
     );
+    const totalTasks = scopedTasks.length;
     const doneColumn = selectedProject.columns.find(
       (column) => column.name.toLowerCase() === 'done'
     );
-    const done = doneColumn?.tasks.length || 0;
+    const done = doneColumn?.tasks.filter((task) => !sprintId || task.sprintId === sprintId).length || 0;
 
     return {
       totalTasks,
       inFlow: Math.max(totalTasks - done, 0),
       done
     };
-  }, [selectedProject]);
+  }, [selectedProject, sprintId]);
+  const selectedSprint = useMemo(
+    () => selectedProject?.sprints?.find((sprint) => sprint.id === sprintId) || null,
+    [selectedProject, sprintId]
+  );
+  const isReadonlySprintBoard = Boolean(selectedSprint && selectedSprint.status !== 'active');
+  const sprintTaskCount = useMemo(() => {
+    if (!selectedProject || !selectedSprint) {
+      return 0;
+    }
+
+    return selectedProject.columns.reduce(
+      (count, column) =>
+        count + column.tasks.filter((task) => task.sprintId === selectedSprint.id).length,
+      0
+    );
+  }, [selectedProject, selectedSprint]);
+  const scopedColumns = useMemo(() => {
+    if (!selectedProject) {
+      return [];
+    }
+
+    return selectedSprint
+      ? selectedProject.columns.map((column) => ({
+          ...column,
+          tasks: column.tasks.filter((task) => task.sprintId === selectedSprint.id)
+        }))
+      : [];
+  }, [selectedProject, selectedSprint]);
+
   const visibleColumns = useMemo(() => {
     if (!selectedProject) {
       return [];
     }
 
     if (!isMobileBoard || !mobileColumnId) {
-      return selectedProject.columns;
+      return scopedColumns;
     }
 
-    return selectedProject.columns.filter((column) => column.id === mobileColumnId);
-  }, [isMobileBoard, mobileColumnId, selectedProject]);
+    return scopedColumns.filter((column) => column.id === mobileColumnId);
+  }, [isMobileBoard, mobileColumnId, scopedColumns, selectedProject]);
   const moveTargetsByColumnId = useMemo(() => {
     if (!selectedProject) {
       return {};
@@ -327,6 +357,7 @@ function BoardWorkspace({
         priority: values.priority,
         labels: normalizeLabels(values.labels),
         dueDate: values.dueDate,
+        sprintId: selectedSprint?.status === 'active' ? selectedSprint.id : null,
         columnId
       });
       setTaskFormError('');
@@ -448,8 +479,28 @@ function BoardWorkspace({
     }
   };
 
+  const handleToggleSprintTask = async (task) => {
+    if (!selectedProject || !selectedSprint || selectedSprint.status !== 'active') {
+      return;
+    }
+
+    const nextSprintId = task.sprintId === selectedSprint.id ? null : selectedSprint.id;
+
+    try {
+      await onUpdateTask(selectedProject.id, task.id, {
+        sprintId: nextSprintId
+      });
+      setTaskFormError('');
+      setTaskFormSuccess(
+        nextSprintId ? 'Task added to the sprint.' : 'Task moved back to the backlog.'
+      );
+    } catch (requestError) {
+      setTaskFormError(requestError.message || 'Could not update sprint assignment');
+    }
+  };
+
   const handleDragStart = (event) => {
-    if (isMobileBoard) {
+    if (isMobileBoard || isReadonlySprintBoard) {
       return;
     }
 
@@ -483,7 +534,7 @@ function BoardWorkspace({
   };
 
   const handleDragOver = (event) => {
-    if (isMobileBoard) {
+    if (isMobileBoard || isReadonlySprintBoard) {
       return;
     }
 
@@ -512,7 +563,7 @@ function BoardWorkspace({
   };
 
   const handleDropTask = async (event) => {
-    if (isMobileBoard) {
+    if (isMobileBoard || isReadonlySprintBoard) {
       handleDragEnd();
       return;
     }
@@ -564,19 +615,30 @@ function BoardWorkspace({
           <div className="board-project-bar__content">
             <div className="board-project-bar__copy">
               <p className="eyebrow">Board</p>
-              <h1>{selectedProject ? selectedProject.name : 'Choose a project'}</h1>
+              <h1>{selectedSprint ? selectedSprint.name : 'Choose a sprint'}</h1>
               <p>
-                {selectedProject
-                  ? selectedProject.description ||
-                    'Manage tasks, priorities, due dates, and delivery in one focused space.'
-                  : 'Select a project in the dashboard before managing the board.'}
+                {selectedSprint
+                  ? selectedSprint.goal ||
+                    'Manage the tasks committed to this sprint and move them across the board.'
+                  : 'Open a project sprint before managing the board.'}
               </p>
-              {selectedProject ? (
+              {selectedSprint ? (
                 <p className="board-instruction">
-                  {isMobileBoard
-                    ? 'Use the column selector and the Move to control to update progress.'
-                    : 'Drag cards between columns to update progress.'}
+                  {isReadonlySprintBoard
+                    ? 'This sprint is closed. You can review its board, but changes are locked.'
+                    : isMobileBoard
+                      ? 'Use the column selector and the Move to control to update progress.'
+                      : 'Drag cards between columns to update progress.'}
                 </p>
+              ) : null}
+              {selectedSprint ? (
+                <div className="board-sprint-banner">
+                  <span className="board-sprint-banner__eyebrow">
+                    {isReadonlySprintBoard ? 'Sprint history' : 'Active sprint'}
+                  </span>
+                  <strong>{selectedSprint.name}</strong>
+                  <span>{sprintTaskCount} tasks included</span>
+                </div>
               ) : null}
             </div>
 
@@ -614,7 +676,7 @@ function BoardWorkspace({
           ) : null}
         </article>
 
-        {selectedProject ? (
+        {selectedSprint ? (
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
@@ -624,7 +686,7 @@ function BoardWorkspace({
           >
             {isMobileBoard ? (
               <div className="board-mobile-switcher" role="tablist" aria-label="Board columns">
-                {selectedProject.columns.map((column) => (
+                {scopedColumns.map((column) => (
                   <button
                     key={column.id}
                     type="button"
@@ -671,7 +733,7 @@ function BoardWorkspace({
                               columnId={column.id}
                               isEditing={editingTaskId === task.id}
                               isDragging={activeDragTaskId === task.id}
-                              isDragEnabled={!isMobileBoard}
+                              isDragEnabled={!isMobileBoard && !isReadonlySprintBoard}
                             >
                               {({ dragHandleProps }) => {
                                 if (editingTaskId === task.id) {
@@ -800,28 +862,45 @@ function BoardWorkspace({
                                           ))}
                                         </div>
                                       ) : null}
+                                      {task.sprintId === selectedSprint.id ? (
+                                        <div className="label-row">
+                                          <span className="task-sprint-chip">
+                                            {isReadonlySprintBoard ? 'Closed sprint' : 'In sprint'}
+                                          </span>
+                                        </div>
+                                      ) : null}
                                     </div>
 
-                                    <div className="task-actions">
-                                      <button
-                                        type="button"
-                                        className="ghost-button ghost-button--action"
-                                        disabled={isUpdatingTask || isDeletingTask}
-                                        onClick={() => startEditingTask(task)}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="ghost-button ghost-button--action ghost-button--danger-solid"
-                                        disabled={isUpdatingTask || isDeletingTask}
-                                        onClick={() => handleDeleteTask(task.id)}
-                                      >
-                                        {isDeletingTask ? 'Deleting...' : 'Delete'}
-                                      </button>
-                                    </div>
+                                    {!isReadonlySprintBoard ? (
+                                      <div className="task-actions">
+                                        <button
+                                          type="button"
+                                          className="ghost-button ghost-button--action"
+                                          disabled={isUpdatingTask || isDeletingTask}
+                                          onClick={() => startEditingTask(task)}
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="ghost-button ghost-button--action ghost-button--danger-solid"
+                                          disabled={isUpdatingTask || isDeletingTask}
+                                          onClick={() => handleDeleteTask(task.id)}
+                                        >
+                                          {isDeletingTask ? 'Deleting...' : 'Delete'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="ghost-button ghost-button--action"
+                                          disabled={isUpdatingTask || isDeletingTask}
+                                          onClick={() => handleToggleSprintTask(task)}
+                                        >
+                                          Remove from sprint
+                                        </button>
+                                      </div>
+                                    ) : null}
 
-                                    {moveTargetsByColumnId[column.id]?.length ? (
+                                    {!isReadonlySprintBoard && moveTargetsByColumnId[column.id]?.length ? (
                                       <div className="task-mobile-move">
                                         <select
                                           aria-label={`Move ${task.title} to another column`}
@@ -859,17 +938,19 @@ function BoardWorkspace({
                         )}
                       </div>
 
-                      <div className="column-footer">
-                        <button
-                          type="button"
-                          className="ghost-button ghost-button--panel"
-                          onClick={() => toggleTaskComposer(column.id)}
-                        >
-                          {openTaskComposerByColumn[column.id] ? 'Cancel' : 'Add task'}
-                        </button>
-                      </div>
+                      {!isReadonlySprintBoard ? (
+                        <div className="column-footer">
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--panel"
+                            onClick={() => toggleTaskComposer(column.id)}
+                          >
+                            {openTaskComposerByColumn[column.id] ? 'Cancel' : 'Add task'}
+                          </button>
+                        </div>
+                      ) : null}
 
-                      {openTaskComposerByColumn[column.id] ? (
+                      {!isReadonlySprintBoard && openTaskComposerByColumn[column.id] ? (
                         <form
                           className="form-grid board-task-form"
                           onSubmit={(event) => handleTaskSubmit(event, column.id)}
@@ -997,8 +1078,8 @@ function BoardWorkspace({
         ) : (
           <article className="card board-empty">
             <p className="eyebrow">Board</p>
-            <h3>No active project yet</h3>
-            <p>Create or select a project from the dashboard before managing tasks here.</p>
+            <h3>No sprint selected</h3>
+            <p>Open a project sprint before managing tasks in the board.</p>
           </article>
         )}
       </section>

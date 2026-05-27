@@ -24,16 +24,6 @@ function DashboardWorkspace({
     description: ''
   });
 
-  const activeTasks = useMemo(
-    () =>
-      selectedProject
-        ? selectedProject.columns
-            .filter((column) => column.name !== 'Done')
-            .reduce((count, column) => count + column.tasks.length, 0)
-        : 0,
-    [selectedProject]
-  );
-
   const selectedProjectSummary = useMemo(() => {
     if (!selectedProject) {
       return {
@@ -54,15 +44,23 @@ function DashboardWorkspace({
     };
   }, [selectedProject]);
 
-  const completionRatio = useMemo(() => {
-    if (!selectedProjectSummary.totalCards) {
+  const activeSprint = useMemo(
+    () => selectedProject?.sprints?.find((sprint) => sprint.status === 'active') || null,
+    [selectedProject]
+  );
+
+  const sprintTaskCount = useMemo(() => {
+    if (!selectedProject || !activeSprint) {
       return 0;
     }
 
-    return Math.round(
-      (selectedProjectSummary.completedCards / selectedProjectSummary.totalCards) * 100
+    return selectedProject.columns.reduce(
+      (count, column) =>
+        count + column.tasks.filter((task) => task.sprintId === activeSprint.id).length,
+      0
     );
-  }, [selectedProjectSummary]);
+  }, [activeSprint, selectedProject]);
+  const backlogTaskCount = Math.max(selectedProjectSummary.totalCards - sprintTaskCount, 0);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -167,8 +165,8 @@ function DashboardWorkspace({
                   project.id === selectedProject?.id ? 'project-list-item--active' : ''
                 }`}
               >
-                <button
-                  type="button"
+                <Link
+                  to={`/projects/${project.id}`}
                   className="project-select-button"
                   onClick={() => onSelectProject(project.id)}
                 >
@@ -177,7 +175,7 @@ function DashboardWorkspace({
                     <span>{project.columns.length} lanes</span>
                   </div>
                   <p>{project.description || 'No description yet.'}</p>
-                </button>
+                </Link>
               </article>
             ))}
           </div>
@@ -185,27 +183,29 @@ function DashboardWorkspace({
 
         <article className="card board-summary board-summary--compact">
           <div className="section-copy">
-            <p className="eyebrow">Current project</p>
+            <p className="eyebrow">Selected project</p>
             <h2>{selectedProject ? selectedProject.name : 'No project selected'}</h2>
             <p>
               {selectedProject
-                ? selectedProject.description || 'Open the board to manage tasks and delivery.'
+                ? activeSprint
+                  ? `Active sprint: ${activeSprint.name}`
+                  : 'This project has no active sprint yet.'
                 : 'Create a project to start planning, tracking, and delivering work.'}
             </p>
           </div>
 
           <div className="summary-metric-grid summary-metric-grid--compact">
             <article className="summary-metric-card">
+              <strong>{activeSprint ? sprintTaskCount : 0}</strong>
+              <span>Sprint tasks</span>
+            </article>
+            <article className="summary-metric-card">
+              <strong>{backlogTaskCount}</strong>
+              <span>Backlog tasks</span>
+            </article>
+            <article className="summary-metric-card">
               <strong>{selectedProjectSummary.totalCards}</strong>
-              <span>Tasks</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{activeTasks}</strong>
-              <span>In flow</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{completionRatio}%</strong>
-              <span>Completion</span>
+              <span>Total tasks</span>
             </article>
             <article className="summary-metric-card">
               <strong>{selectedProjectSummary.completedCards}</strong>
@@ -220,8 +220,8 @@ function DashboardWorkspace({
           {selectedProject ? (
             <>
               <div className="summary-action-row summary-action-row--split">
-                <Link to="/board" className="primary-button">
-                  Open board
+                <Link to={`/projects/${selectedProject.id}`} className="primary-button">
+                  Open project
                 </Link>
                 <button
                   type="button"

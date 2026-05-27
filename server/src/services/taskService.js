@@ -105,6 +105,25 @@ async function ensureOwnedColumn(userId, columnId) {
   return column;
 }
 
+async function ensureOwnedSprint(userId, sprintId) {
+  const sprint = await prisma.sprint.findFirst({
+    where: {
+      id: sprintId,
+      project: {
+        ownerId: userId
+      }
+    }
+  });
+
+  if (!sprint) {
+    const error = new Error('Sprint not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return sprint;
+}
+
 async function ensureOwnedTask(userId, taskId) {
   const task = await prisma.task.findFirst({
     where: {
@@ -257,6 +276,10 @@ export async function createTaskForProject(userId, projectId, payload) {
   const priority = parsePriority(payload.priority) || 'medium';
   const labels = parseLabels(payload.labels) || [];
   const dueDate = parseDueDate(payload.dueDate) ?? null;
+  const sprintId =
+    payload.sprintId === undefined || payload.sprintId === null || payload.sprintId === ''
+      ? null
+      : String(payload.sprintId);
 
   if (!title || !columnId) {
     const error = new Error('Task title and column are required');
@@ -279,6 +302,16 @@ export async function createTaskForProject(userId, projectId, payload) {
     throw error;
   }
 
+  if (sprintId) {
+    const sprint = await ensureOwnedSprint(userId, sprintId);
+
+    if (sprint.projectId !== projectId) {
+      const error = new Error('Task can only be associated with a sprint from its current project');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   const position = await getNextTaskPosition(columnId);
 
   return prisma.task.create({
@@ -289,6 +322,7 @@ export async function createTaskForProject(userId, projectId, payload) {
       labels,
       dueDate,
       columnId,
+      sprintId,
       position
     }
   });
@@ -304,6 +338,12 @@ export async function updateTaskForUser(userId, taskId, payload) {
   const nextLabels = parseLabels(payload.labels);
   const nextDueDate = parseDueDate(payload.dueDate);
   const nextPosition = parsePosition(payload.position);
+  const nextSprintId =
+    payload.sprintId === undefined
+      ? undefined
+      : payload.sprintId === null || payload.sprintId === ''
+        ? null
+        : String(payload.sprintId);
 
   const data = {};
 
@@ -331,6 +371,22 @@ export async function updateTaskForUser(userId, taskId, payload) {
 
   if (nextDueDate !== undefined) {
     data.dueDate = nextDueDate;
+  }
+
+  if (nextSprintId !== undefined) {
+    if (nextSprintId === null) {
+      data.sprintId = null;
+    } else {
+      const sprint = await ensureOwnedSprint(userId, nextSprintId);
+
+      if (sprint.projectId !== task.column.projectId) {
+        const error = new Error('Task can only be associated with a sprint from its current project');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      data.sprintId = nextSprintId;
+    }
   }
 
   const targetColumnId = nextColumnId || task.columnId;

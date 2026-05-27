@@ -26,6 +26,7 @@ model Project {
   updatedAt   DateTime @updatedAt
   owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   columns     Column[]
+  sprints     Sprint[]
 }
 
 model Column {
@@ -50,7 +51,23 @@ model Task {
   dueDate     DateTime?
   position    Int      @default(0)
   columnId    String
+  sprintId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   column      Column   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  sprint      Sprint?  @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+}
+
+model Sprint {
+  id        String   @id @default(uuid())
+  name      String
+  goal      String?
+  status    String   @default("active")
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  projectId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     Task[]
 }

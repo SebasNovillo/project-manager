@@ -11,6 +11,10 @@ import {
   deleteTask as deleteTaskRequest,
   updateTask
 } from '../services/taskService';
+import {
+  completeSprint as completeSprintRequest,
+  createSprint as createSprintRequest
+} from '../services/sprintService';
 
 const SELECTED_PROJECT_STORAGE_KEY = 'project-manager-selected-project';
 
@@ -102,6 +106,8 @@ function useWorkspaceData() {
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isUpdatingProject, setIsUpdatingProject] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [isCreatingSprint, setIsCreatingSprint] = useState(false);
+  const [isCompletingSprint, setIsCompletingSprint] = useState(false);
   const [error, setError] = useState('');
 
   const handleWorkspaceError = (requestError) => {
@@ -270,6 +276,50 @@ function useWorkspaceData() {
     }
   };
 
+  const handleCreateSprint = async (projectId, values) => {
+    try {
+      setIsCreatingSprint(true);
+      const createdSprint = await createSprintRequest(projectId, values, token);
+
+      setProjects((currentProjects) =>
+        updateProjectInList(currentProjects, projectId, (project) => ({
+          ...project,
+          sprints: [createdSprint, ...(project.sprints || [])]
+        }))
+      );
+      setError('');
+      return createdSprint;
+    } catch (requestError) {
+      handleWorkspaceError(requestError);
+      throw requestError;
+    } finally {
+      setIsCreatingSprint(false);
+    }
+  };
+
+  const handleCompleteSprint = async (projectId, sprintId) => {
+    try {
+      setIsCompletingSprint(true);
+      const completedSprint = await completeSprintRequest(sprintId, token);
+
+      setProjects((currentProjects) =>
+        updateProjectInList(currentProjects, projectId, (project) => ({
+          ...project,
+          sprints: (project.sprints || []).map((sprint) =>
+            sprint.id === sprintId ? completedSprint : sprint
+          )
+        }))
+      );
+      setError('');
+      return completedSprint;
+    } catch (requestError) {
+      handleWorkspaceError(requestError);
+      throw requestError;
+    } finally {
+      setIsCompletingSprint(false);
+    }
+  };
+
   const handleMoveTask = async (projectId, taskId, columnId, targetIndex) => {
     try {
       setIsUpdatingTask(true);
@@ -360,6 +410,8 @@ function useWorkspaceData() {
     isDeletingTask,
     isUpdatingProject,
     isDeletingProject,
+    isCreatingSprint,
+    isCompletingSprint,
     error,
     onCreateProject: handleCreateProject,
     onUpdateProject: handleUpdateProject,
@@ -368,7 +420,9 @@ function useWorkspaceData() {
     onCreateTask: handleCreateTask,
     onMoveTask: handleMoveTask,
     onUpdateTask: handleUpdateTask,
-    onDeleteTask: handleDeleteTask
+    onDeleteTask: handleDeleteTask,
+    onCreateSprint: handleCreateSprint,
+    onCompleteSprint: handleCompleteSprint
   };
 }
 
