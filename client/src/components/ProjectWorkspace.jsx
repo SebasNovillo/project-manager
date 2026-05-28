@@ -598,16 +598,18 @@ function ProjectWorkspace({
             <div className="project-list sprint-history-list">
               {completedSprints.map((sprint) => (
                 <article key={sprint.id} className="history-sprint-item">
-                  <div className="history-sprint-item__top">
-                    <div>
-                      <h3>{sprint.name}</h3>
-                      <p>{sprint.goal || 'No sprint goal was added.'}</p>
+                  <div className="history-sprint-item__copy">
+                    <h3>{sprint.name}</h3>
+                    <p>{sprint.goal || 'No sprint goal was added.'}</p>
+                    <div className="history-sprint-item__meta">
+                      <span className="history-sprint-item__pill">
+                        {sprint.tasks?.length || 0} tasks
+                      </span>
+                      <span className="status-copy">Ended {formatDate(sprint.endDate)}</span>
                     </div>
-                    <span>{sprint.tasks?.length || 0} tasks</span>
                   </div>
 
-                  <div className="history-sprint-item__footer">
-                    <span className="status-copy">Ended {formatDate(sprint.endDate)}</span>
+                  <div className="history-sprint-item__actions">
                     <Link
                       to={`/projects/${selectedProject.id}/sprints/${sprint.id}/board`}
                       className="ghost-button ghost-button--panel"
