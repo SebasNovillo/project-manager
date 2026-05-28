@@ -1,41 +1,40 @@
-# Backlog inicial
+# Initial backlog
 
-## Epic 1 - Base del producto
+## Product foundation
 
-- Definir entidades del sistema
-- Diseñar el esquema inicial de base de datos
-- Configurar estructura `client` y `server`
+- define the main system entities
+- design the initial database schema
+- configure the `client` and `server` structure
 
-## Epic 2 - Kanban MVP
+## Kanban workflow
 
-- Mostrar columnas base del tablero
-- Crear tarea
-- Editar tarea
-- Mover tarea entre columnas
-- Guardar orden y estado
+- show the default board columns
+- create tasks
+- edit tasks
+- move tasks across columns
+- persist order and status
 
-## Epic 3 - SCRUM MVP
+## Scrum workflow
 
-- Crear sprint
-- Asociar tareas al sprint
-- Mostrar sprint activo
-- Separar backlog de proyecto del board del sprint
-- Crear tareas directamente en el backlog del proyecto
+- create a sprint
+- assign tasks to a sprint
+- show the active sprint
+- keep project backlog separate from the sprint board
 
-## Epic 4 - Usuarios
+## Users
 
-- Registro e inicio de sesion
-- Roles basicos
-- Asignacion de tareas
+- register and sign in
+- add basic roles
+- assign tasks to people
 
-## Historias recomendadas para arrancar
+## Early user stories
 
-1. Como usuario, quiero ver un backlog de proyecto con columnas base para empezar a organizar trabajo.
-2. Como usuario, quiero crear una tarea con titulo y descripcion.
-3. Como usuario, quiero mover una tarea de `To Do` a `In Progress` dentro del sprint.
-4. Como usuario, quiero crear un sprint activo.
-5. Como usuario, quiero asociar tareas al sprint actual.
+1. As a user, I want to see a project backlog with the default columns so I can start organizing work.
+2. As a user, I want to create a task with a title and description.
+3. As a user, I want to move a task from `To Do` to `In Progress` inside the sprint board.
+4. As a user, I want to create an active sprint.
+5. As a user, I want to assign backlog tasks to the current sprint.
 
-## Criterio de enfoque
+## Focus rule
 
-Si una funcionalidad no ayuda directamente a crear, visualizar o mover tareas, probablemente puede esperar a una segunda fase.
+If a feature does not directly help create, visualize, plan, or move work, it can wait until a later stage.

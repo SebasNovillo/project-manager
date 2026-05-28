@@ -55,6 +55,7 @@ function ProjectWorkspace({
     labels: '',
     dueDate: ''
   });
+  const [isBacklogComposerOpen, setIsBacklogComposerOpen] = useState(false);
 
   const activeSprint = useMemo(
     () => selectedProject?.sprints?.find((sprint) => sprint.status === 'active') || null,
@@ -244,6 +245,7 @@ function ProjectWorkspace({
       labels: '',
       dueDate: ''
     });
+    setIsBacklogComposerOpen(false);
   };
 
   const handleAddTaskToSprint = async (taskId) => {
@@ -451,7 +453,7 @@ function ProjectWorkspace({
             <p className="eyebrow">Project backlog</p>
             <h2>{backlogTaskCount} tasks outside the sprint</h2>
             <p>
-              This is the planning queue for the project. Create tasks here first, then pull them into a sprint when they are ready.
+              Keep uncommitted work here, then pull it into a sprint when it is ready to be executed.
             </p>
           </div>
 
@@ -470,75 +472,86 @@ function ProjectWorkspace({
             </article>
           </div>
 
-          <form className="form-grid sprint-form" onSubmit={handleBacklogTaskSubmit}>
-            <label>
-              <span>Backlog task title</span>
-              <input
-                type="text"
-                name="title"
-                placeholder="Prepare release checklist"
-                value={backlogTaskValues.title}
-                onChange={handleBacklogTaskChange}
-              />
-            </label>
+          <div className="summary-action-row summary-action-row--split project-backlog-toolbar">
+            <button
+              type="button"
+              className="ghost-button ghost-button--panel"
+              onClick={() => setIsBacklogComposerOpen((currentValue) => !currentValue)}
+            >
+              {isBacklogComposerOpen ? 'Cancel backlog task' : 'Add backlog task'}
+            </button>
+            <span className="status-copy">
+              Backlog tasks live in <strong>{backlogColumn?.name || 'Backlog'}</strong> until they are assigned to a sprint.
+            </span>
+          </div>
 
-            <label>
-              <span>Description</span>
-              <textarea
-                name="description"
-                rows="3"
-                placeholder="Optional details for the backlog item"
-                value={backlogTaskValues.description}
-                onChange={handleBacklogTaskChange}
-              />
-            </label>
-
-            <div className="task-meta-grid">
+          {isBacklogComposerOpen ? (
+            <form className="form-grid sprint-form" onSubmit={handleBacklogTaskSubmit}>
               <label>
-                <span>Priority</span>
-                <select
-                  name="priority"
-                  value={backlogTaskValues.priority}
-                  onChange={handleBacklogTaskChange}
-                >
-                  {priorityOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <span>Due date</span>
+                <span>Backlog task title</span>
                 <input
-                  type="date"
-                  name="dueDate"
-                  value={backlogTaskValues.dueDate}
+                  type="text"
+                  name="title"
+                  placeholder="Prepare release checklist"
+                  value={backlogTaskValues.title}
                   onChange={handleBacklogTaskChange}
                 />
               </label>
-            </div>
 
-            <label>
-              <span>Labels</span>
-              <input
-                type="text"
-                name="labels"
-                placeholder="frontend, qa"
-                value={backlogTaskValues.labels}
-                onChange={handleBacklogTaskChange}
-              />
-            </label>
+              <label>
+                <span>Description</span>
+                <textarea
+                  name="description"
+                  rows="3"
+                  placeholder="Optional details for the backlog item"
+                  value={backlogTaskValues.description}
+                  onChange={handleBacklogTaskChange}
+                />
+              </label>
 
-            <p className="task-form-note">
-              This task will be created in <strong>{backlogColumn?.name || 'Backlog'}</strong> and will stay outside any sprint until you commit it.
-            </p>
+              <div className="task-meta-grid">
+                <label>
+                  <span>Priority</span>
+                  <select
+                    name="priority"
+                    value={backlogTaskValues.priority}
+                    onChange={handleBacklogTaskChange}
+                  >
+                    {priorityOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            <button type="submit" className="primary-button" disabled={isCreatingTask}>
-              {isCreatingTask ? 'Saving task...' : 'Add to backlog'}
-            </button>
-          </form>
+                <label>
+                  <span>Due date</span>
+                  <input
+                    type="date"
+                    name="dueDate"
+                    value={backlogTaskValues.dueDate}
+                    onChange={handleBacklogTaskChange}
+                  />
+                </label>
+              </div>
+
+              <label>
+                <span>Labels</span>
+                <input
+                  type="text"
+                  name="labels"
+                  placeholder="frontend, qa"
+                  value={backlogTaskValues.labels}
+                  onChange={handleBacklogTaskChange}
+                />
+              </label>
+
+              <button type="submit" className="primary-button" disabled={isCreatingTask}>
+                {isCreatingTask ? 'Saving task...' : 'Add to backlog'}
+              </button>
+            </form>
+          ) : null}
 
           {backlogTasks.length ? (
             <div className="project-backlog-list">
@@ -546,7 +559,7 @@ function ProjectWorkspace({
                 <article key={task.id} className="project-backlog-item">
                   <div>
                     <strong>{task.title}</strong>
-                    <p>{[task.columnName, task.description].filter(Boolean).join(' · ')}</p>
+                    <p>{[task.columnName, task.description].filter(Boolean).join(' - ')}</p>
                   </div>
                   <button
                     type="button"
@@ -564,8 +577,8 @@ function ProjectWorkspace({
               ))}
             </div>
           ) : (
-            <p className="status-copy">
-              No backlog tasks yet. Add a few here before planning the next sprint.
+            <p className="status-copy project-backlog-empty">
+              No backlog tasks yet. Add one when work is ready to be planned.
             </p>
           )}
         </article>
@@ -582,24 +595,25 @@ function ProjectWorkspace({
           </div>
 
           {completedSprints.length ? (
-            <div className="project-list">
+            <div className="project-list sprint-history-list">
               {completedSprints.map((sprint) => (
-                <article key={sprint.id} className="project-list-item">
-                  <div className="project-select-button">
-                    <div className="project-list-item-top">
+                <article key={sprint.id} className="history-sprint-item">
+                  <div className="history-sprint-item__top">
+                    <div>
                       <h3>{sprint.name}</h3>
-                      <span>{sprint.tasks?.length || 0} tasks</span>
+                      <p>{sprint.goal || 'No sprint goal was added.'}</p>
                     </div>
-                    <p>{sprint.goal || 'No sprint goal was added.'}</p>
-                    <div className="summary-action-row summary-action-row--split">
-                      <span className="status-copy">Ended {formatDate(sprint.endDate)}</span>
-                      <Link
-                        to={`/projects/${selectedProject.id}/sprints/${sprint.id}/board`}
-                        className="ghost-button ghost-button--panel"
-                      >
-                        View board
-                      </Link>
-                    </div>
+                    <span>{sprint.tasks?.length || 0} tasks</span>
+                  </div>
+
+                  <div className="history-sprint-item__footer">
+                    <span className="status-copy">Ended {formatDate(sprint.endDate)}</span>
+                    <Link
+                      to={`/projects/${selectedProject.id}/sprints/${sprint.id}/board`}
+                      className="ghost-button ghost-button--panel"
+                    >
+                      View board
+                    </Link>
                   </div>
                 </article>
               ))}

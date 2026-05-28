@@ -1,117 +1,100 @@
-# Project Manager - Punto de partida
+# Project Manager
 
-Este proyecto busca construir una aplicacion de gestion de proyectos inspirada en herramientas como Jira, ClickUp o Monday, combinando flujo visual tipo Kanban con organizacion SCRUM.
+Project Manager is a web application for planning work at the project level and executing it inside sprint boards. It combines a lightweight Scrum flow with a visual Kanban experience inspired by tools like Jira, ClickUp, and Monday.
 
-## Vision del producto
+## Product goal
 
-La aplicacion debe permitir que una persona o equipo:
+The app is designed to help a person or team:
 
-- cree y gestione tareas
-- organice trabajo por columnas Kanban dentro de cada sprint
-- planifique sprints
-- mantenga un backlog de proyecto fuera del sprint
-- vea progreso del equipo en tiempo real
+- manage projects and tasks
+- keep a project backlog outside the sprint
+- start and complete sprints
+- move committed work across fixed Kanban stages
+- track progress with a simple visual workflow
 
-## Recomendacion para empezar
+## Core workflow
 
-En lugar de intentar construir todo a la vez, conviene arrancar con un **MVP** pequeno pero util.
+The current product model is:
 
-### MVP recomendado
+- a `Project` owns the planning space
+- a `Sprint` owns the execution board
+- a `Task` can stay in the project backlog or be assigned to a sprint
+- fixed columns define the workflow: `Backlog`, `To Do`, `In Progress`, `Review`, `Done`
 
-Version 1:
+This means planning happens at the project level, while active work happens inside a sprint board.
 
-- autenticacion basica
-- creacion de workspace
-- tablero Kanban por sprint
-- columnas fijas: `Backlog`, `To Do`, `In Progress`, `Review`, `Done`
-- crear, editar y mover tareas
-- backlog de proyecto
-- crear un sprint activo
-- mover tareas del backlog al sprint activo
+## Current scope
 
-Version 2:
+The application currently focuses on:
 
-- asignar usuarios a tareas
-- etiquetas y prioridades
-- comentarios
-- historial de actividad
+- authentication
+- project creation and editing
+- project backlog management
+- sprint creation and completion
+- sprint board navigation
+- task creation, editing, deletion, and movement across columns
 
-Version 3:
-
-- dashboard con metricas
-- story points
-- burndown chart
-- notificaciones
-- integraciones
-
-## Stack recomendado
+## Tech stack
 
 - Frontend: `React + Vite`
 - Backend: `Node.js + Express`
-- Base de datos: `PostgreSQL`
+- Database: `PostgreSQL`
 - ORM: `Prisma`
-- Autenticacion: `JWT`
-- Tiempo real: `Socket.IO`
+- Authentication: `JWT`
 - Drag and drop: `dnd-kit`
 
-## Arquitectura inicial
+## Project structure
 
-Podemos dividir el sistema en 3 bloques:
+- `client/` contains the web application UI
+- `server/` contains the API, business logic, and Prisma setup
+- `docs/` contains planning notes and product references
 
-1. `client/`
-   Aplicacion web con el tablero, vistas de sprint y formularios.
-2. `server/`
-   API para usuarios, workspaces, tareas, columnas y sprints.
-3. `database/`
-   Esquema Prisma y modelo de datos.
+## Data model
 
-## Modelo de datos base
-
-Entidades recomendadas para la primera version:
+Main entities:
 
 - `User`
-- `Workspace`
 - `Project`
 - `Sprint`
 - `Column`
 - `Task`
 
-Relaciones principales:
+Main relationships:
 
-- un `Workspace` tiene muchos `Project`
-- un `Project` tiene muchos `Sprint`
-- un `Project` tiene muchas `Column`
-- una `Column` tiene muchas `Task`
-- una `Task` puede pertenecer a un `Sprint`
+- one `User` owns many `Project` records
+- one `Project` owns many `Sprint` records
+- one `Project` owns many `Column` records
+- one `Column` owns many `Task` records
+- one `Task` may belong to one `Sprint`
 
-## Primera meta tecnica
+## Local development
 
-La primera entrega deberia permitir:
+Install dependencies:
 
-1. iniciar sesion
-2. abrir un proyecto
-3. gestionar el backlog del proyecto
-4. abrir el tablero del sprint activo
-5. mover la tarea entre columnas del sprint
+```bash
+npm install
+```
 
-Si eso funciona, ya tenemos una base muy buena sobre la cual agregar SCRUM.
+Run the client and server together:
 
-## Orden sugerido de trabajo
+```bash
+npm run dev
+```
 
-1. definir alcance del MVP
-2. modelar base de datos
-3. crear backend con CRUD de tareas, columnas y sprints
-4. crear frontend con tablero Kanban
-5. conectar drag and drop con persistencia
-6. agregar autenticacion
-7. agregar sprint management
+Run only the client:
 
-## Proximo paso recomendado
+```bash
+npm run dev:client
+```
 
-El siguiente paso mas util es crear la estructura inicial del proyecto:
+Run only the server:
 
-- `client/` con Vite + React
-- `server/` con Express
-- `prisma/` con el esquema inicial
+```bash
+npm run dev:server
+```
 
-Antes de sumar analitica, tiempo real o integraciones, necesitamos que el flujo basico de tareas funcione muy bien.
+Build the client:
+
+```bash
+npm run build
+```
