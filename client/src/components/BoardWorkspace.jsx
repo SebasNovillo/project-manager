@@ -1,6 +1,7 @@
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
 
@@ -617,6 +618,14 @@ function BoardWorkspace({
               <p className="eyebrow">Sprint Board</p>
               {selectedProject ? (
                 <p className="board-project-kicker">{selectedProject.name}</p>
+              ) : null}
+              {selectedProject ? (
+                <Link
+                  to={`/projects/${selectedProject.id}`}
+                  className="ghost-button ghost-button--panel board-project-link"
+                >
+                  Back to project
+                </Link>
               ) : null}
               <h1>{selectedSprint ? selectedSprint.name : 'Choose a sprint'}</h1>
               <p>

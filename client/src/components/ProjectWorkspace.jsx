@@ -289,18 +289,6 @@ function ProjectWorkspace({
         </div>
 
         <div className="summary-action-row summary-action-row--split">
-          {activeSprint ? (
-            <Link
-              to={`/projects/${selectedProject.id}/sprints/${activeSprint.id}/board`}
-              className="primary-button"
-            >
-              Open active sprint board
-            </Link>
-          ) : (
-            <span className="status-copy project-view-note">
-              Start a sprint when the backlog has work ready to commit.
-            </span>
-          )}
           <button
             type="button"
             className="ghost-button ghost-button--action"
@@ -321,6 +309,12 @@ function ProjectWorkspace({
             Back to dashboard
           </Link>
         </div>
+
+        {!activeSprint ? (
+          <p className="status-copy project-view-note">
+            Start a sprint when the backlog has work ready to commit.
+          </p>
+        ) : null}
 
         {error ? <p className="form-error">{error}</p> : null}
 
