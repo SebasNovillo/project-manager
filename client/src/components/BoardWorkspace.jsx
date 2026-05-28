@@ -614,7 +614,10 @@ function BoardWorkspace({
         <article className="card board-project-bar">
           <div className="board-project-bar__content">
             <div className="board-project-bar__copy">
-              <p className="eyebrow">Board</p>
+              <p className="eyebrow">Sprint Board</p>
+              {selectedProject ? (
+                <p className="board-project-kicker">{selectedProject.name}</p>
+              ) : null}
               <h1>{selectedSprint ? selectedSprint.name : 'Choose a sprint'}</h1>
               <p>
                 {selectedSprint
@@ -862,40 +865,35 @@ function BoardWorkspace({
                                           ))}
                                         </div>
                                       ) : null}
-                                      {task.sprintId === selectedSprint.id ? (
-                                        <div className="label-row">
-                                          <span className="task-sprint-chip">
-                                            {isReadonlySprintBoard ? 'Closed sprint' : 'In sprint'}
-                                          </span>
-                                        </div>
-                                      ) : null}
                                     </div>
 
                                     {!isReadonlySprintBoard ? (
-                                      <div className="task-actions">
+                                      <div className="task-card-footer">
+                                        <div className="task-actions">
+                                          <button
+                                            type="button"
+                                            className="ghost-button ghost-button--action"
+                                            disabled={isUpdatingTask || isDeletingTask}
+                                            onClick={() => startEditingTask(task)}
+                                          >
+                                            Edit
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="ghost-button ghost-button--action ghost-button--danger-solid"
+                                            disabled={isUpdatingTask || isDeletingTask}
+                                            onClick={() => handleDeleteTask(task.id)}
+                                          >
+                                            {isDeletingTask ? 'Deleting...' : 'Delete'}
+                                          </button>
+                                        </div>
                                         <button
                                           type="button"
-                                          className="ghost-button ghost-button--action"
-                                          disabled={isUpdatingTask || isDeletingTask}
-                                          onClick={() => startEditingTask(task)}
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="ghost-button ghost-button--action ghost-button--danger-solid"
-                                          disabled={isUpdatingTask || isDeletingTask}
-                                          onClick={() => handleDeleteTask(task.id)}
-                                        >
-                                          {isDeletingTask ? 'Deleting...' : 'Delete'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="ghost-button ghost-button--action"
+                                          className="ghost-button task-secondary-action"
                                           disabled={isUpdatingTask || isDeletingTask}
                                           onClick={() => handleToggleSprintTask(task)}
                                         >
-                                          Remove from sprint
+                                          Move back to backlog
                                         </button>
                                       </div>
                                     ) : null}

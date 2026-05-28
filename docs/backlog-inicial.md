@@ -19,7 +19,8 @@
 - Crear sprint
 - Asociar tareas al sprint
 - Mostrar sprint activo
-- Separar backlog general de backlog de sprint
+- Separar backlog de proyecto del board del sprint
+- Crear tareas directamente en el backlog del proyecto
 
 ## Epic 4 - Usuarios
 
@@ -29,9 +30,9 @@
 
 ## Historias recomendadas para arrancar
 
-1. Como usuario, quiero ver un tablero vacio con columnas base para empezar a organizar trabajo.
+1. Como usuario, quiero ver un backlog de proyecto con columnas base para empezar a organizar trabajo.
 2. Como usuario, quiero crear una tarea con titulo y descripcion.
-3. Como usuario, quiero mover una tarea de `To Do` a `In Progress`.
+3. Como usuario, quiero mover una tarea de `To Do` a `In Progress` dentro del sprint.
 4. Como usuario, quiero crear un sprint activo.
 5. Como usuario, quiero asociar tareas al sprint actual.
 

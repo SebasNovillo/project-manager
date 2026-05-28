@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 
+const priorityOptions = ['low', 'medium', 'high', 'urgent'];
+
 function formatDate(value) {
   if (!value) {
     return 'Open';
@@ -12,15 +14,24 @@ function formatDate(value) {
   });
 }
 
+function normalizeLabels(value) {
+  return value
+    .split(',')
+    .map((label) => label.trim())
+    .filter(Boolean);
+}
+
 function ProjectWorkspace({
   selectedProject,
   isLoading,
   error,
+  onCreateTask,
   onUpdateProject,
   onUpdateTask,
   onDeleteProject,
   onCreateSprint,
   onCompleteSprint,
+  isCreatingTask,
   isUpdatingProject,
   isUpdatingTask,
   isDeletingProject,
@@ -36,6 +47,13 @@ function ProjectWorkspace({
     name: '',
     goal: '',
     endDate: ''
+  });
+  const [backlogTaskValues, setBacklogTaskValues] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    labels: '',
+    dueDate: ''
   });
 
   const activeSprint = useMemo(
@@ -79,7 +97,6 @@ function ProjectWorkspace({
     return doneColumn?.tasks.filter((task) => task.sprintId === activeSprint.id).length || 0;
   }, [activeSprint, selectedProject]);
 
-  const backlogTaskCount = Math.max(projectTaskCount - sprintTaskCount, 0);
   const backlogTasks = useMemo(() => {
     if (!selectedProject) {
       return [];
@@ -92,6 +109,22 @@ function ProjectWorkspace({
           ...task,
           columnName: column.name
         }))
+    );
+  }, [selectedProject]);
+
+  const backlogTaskCount = backlogTasks.length;
+
+  const backlogColumn = useMemo(() => {
+    if (!selectedProject) {
+      return null;
+    }
+
+    return (
+      selectedProject.columns.find(
+        (column) => column.name.toLowerCase() === 'backlog'
+      ) ||
+      selectedProject.columns[0] ||
+      null
     );
   }, [selectedProject]);
 
@@ -164,6 +197,15 @@ function ProjectWorkspace({
     }));
   };
 
+  const handleBacklogTaskChange = (event) => {
+    const { name, value } = event.target;
+
+    setBacklogTaskValues((currentValues) => ({
+      ...currentValues,
+      [name]: value
+    }));
+  };
+
   const handleSprintSubmit = async (event) => {
     event.preventDefault();
 
@@ -179,6 +221,31 @@ function ProjectWorkspace({
     });
   };
 
+  const handleBacklogTaskSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!selectedProject || !backlogColumn || !backlogTaskValues.title.trim()) {
+      return;
+    }
+
+    await onCreateTask(selectedProject.id, {
+      title: backlogTaskValues.title.trim(),
+      description: backlogTaskValues.description,
+      priority: backlogTaskValues.priority,
+      labels: normalizeLabels(backlogTaskValues.labels),
+      dueDate: backlogTaskValues.dueDate,
+      sprintId: null,
+      columnId: backlogColumn.id
+    });
+    setBacklogTaskValues({
+      title: '',
+      description: '',
+      priority: 'medium',
+      labels: '',
+      dueDate: ''
+    });
+  };
+
   const handleAddTaskToSprint = async (taskId) => {
     if (!selectedProject || !activeSprint) {
       return;
@@ -190,7 +257,11 @@ function ProjectWorkspace({
   };
 
   if (isLoading) {
-    return <article className="card board-empty"><p className="status-copy">Loading project...</p></article>;
+    return (
+      <article className="card board-empty">
+        <p className="status-copy">Loading project...</p>
+      </article>
+    );
   }
 
   if (!selectedProject) {
@@ -211,7 +282,7 @@ function ProjectWorkspace({
           <h1>{selectedProject.name}</h1>
           <p>
             {selectedProject.description ||
-              'Use this space to manage the active sprint before moving into board execution.'}
+              'Use this space to manage backlog planning and move ready work into sprint execution.'}
           </p>
         </div>
 
@@ -225,7 +296,7 @@ function ProjectWorkspace({
             </Link>
           ) : (
             <span className="status-copy project-view-note">
-              Start a sprint to unlock the board for this project.
+              Start a sprint when the backlog has work ready to commit.
             </span>
           )}
           <button
@@ -298,7 +369,7 @@ function ProjectWorkspace({
             <p>
               {activeSprint
                 ? activeSprint.goal || 'This sprint is ready to receive and organize committed work.'
-                : 'Start one sprint for this project before organizing its work inside the board.'}
+                : 'Start one sprint for this project before organizing work inside the sprint board.'}
             </p>
           </div>
 
@@ -380,7 +451,7 @@ function ProjectWorkspace({
             <p className="eyebrow">Project backlog</p>
             <h2>{backlogTaskCount} tasks outside the sprint</h2>
             <p>
-              Use the board to decide what stays in backlog and what becomes part of the active sprint.
+              This is the planning queue for the project. Create tasks here first, then pull them into a sprint when they are ready.
             </p>
           </div>
 
@@ -399,29 +470,104 @@ function ProjectWorkspace({
             </article>
           </div>
 
-          {activeSprint && backlogTasks.length ? (
+          <form className="form-grid sprint-form" onSubmit={handleBacklogTaskSubmit}>
+            <label>
+              <span>Backlog task title</span>
+              <input
+                type="text"
+                name="title"
+                placeholder="Prepare release checklist"
+                value={backlogTaskValues.title}
+                onChange={handleBacklogTaskChange}
+              />
+            </label>
+
+            <label>
+              <span>Description</span>
+              <textarea
+                name="description"
+                rows="3"
+                placeholder="Optional details for the backlog item"
+                value={backlogTaskValues.description}
+                onChange={handleBacklogTaskChange}
+              />
+            </label>
+
+            <div className="task-meta-grid">
+              <label>
+                <span>Priority</span>
+                <select
+                  name="priority"
+                  value={backlogTaskValues.priority}
+                  onChange={handleBacklogTaskChange}
+                >
+                  {priorityOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>Due date</span>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={backlogTaskValues.dueDate}
+                  onChange={handleBacklogTaskChange}
+                />
+              </label>
+            </div>
+
+            <label>
+              <span>Labels</span>
+              <input
+                type="text"
+                name="labels"
+                placeholder="frontend, qa"
+                value={backlogTaskValues.labels}
+                onChange={handleBacklogTaskChange}
+              />
+            </label>
+
+            <p className="task-form-note">
+              This task will be created in <strong>{backlogColumn?.name || 'Backlog'}</strong> and will stay outside any sprint until you commit it.
+            </p>
+
+            <button type="submit" className="primary-button" disabled={isCreatingTask}>
+              {isCreatingTask ? 'Saving task...' : 'Add to backlog'}
+            </button>
+          </form>
+
+          {backlogTasks.length ? (
             <div className="project-backlog-list">
               {backlogTasks.map((task) => (
                 <article key={task.id} className="project-backlog-item">
                   <div>
                     <strong>{task.title}</strong>
-                    <p>
-                      {task.columnName}
-                      {task.description ? ` · ${task.description}` : ''}
-                    </p>
+                    <p>{[task.columnName, task.description].filter(Boolean).join(' · ')}</p>
                   </div>
                   <button
                     type="button"
                     className="ghost-button ghost-button--panel"
-                    disabled={isUpdatingTask}
+                    disabled={!activeSprint || isUpdatingTask}
                     onClick={() => handleAddTaskToSprint(task.id)}
                   >
-                    {isUpdatingTask ? 'Adding...' : 'Add to sprint'}
+                    {!activeSprint
+                      ? 'Start a sprint first'
+                      : isUpdatingTask
+                        ? 'Adding...'
+                        : 'Add to sprint'}
                   </button>
                 </article>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <p className="status-copy">
+              No backlog tasks yet. Add a few here before planning the next sprint.
+            </p>
+          )}
         </article>
 
         <article className="card sprint-history-panel">

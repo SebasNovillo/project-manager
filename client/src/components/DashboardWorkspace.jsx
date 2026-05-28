@@ -60,7 +60,16 @@ function DashboardWorkspace({
       0
     );
   }, [activeSprint, selectedProject]);
-  const backlogTaskCount = Math.max(selectedProjectSummary.totalCards - sprintTaskCount, 0);
+  const backlogTaskCount = useMemo(() => {
+    if (!selectedProject) {
+      return 0;
+    }
+
+    return selectedProject.columns.reduce(
+      (count, column) => count + column.tasks.filter((task) => !task.sprintId).length,
+      0
+    );
+  }, [selectedProject]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -140,12 +149,118 @@ function DashboardWorkspace({
   return (
     <section className="dashboard-stack">
       <section className="dashboard-main-grid">
+        <article className="card board-summary board-summary--compact dashboard-overview">
+          <div className="section-copy">
+            <p className="eyebrow">Workspace overview</p>
+            <h1>{selectedProject ? selectedProject.name : 'No project selected'}</h1>
+            <p>
+              {selectedProject
+                ? activeSprint
+                  ? `Active sprint: ${activeSprint.name}. Keep planning in the backlog and execute committed work inside the sprint board.`
+                  : 'This project has no active sprint yet. Build up the backlog first, then start a sprint when the scope is ready.'
+                : 'Choose a project to review its backlog, sprint status, and delivery progress.'}
+            </p>
+          </div>
+
+          <div className="summary-metric-grid summary-metric-grid--compact dashboard-overview__metrics">
+            <article className="summary-metric-card">
+              <strong>{activeSprint ? sprintTaskCount : 0}</strong>
+              <span>Sprint tasks</span>
+            </article>
+            <article className="summary-metric-card">
+              <strong>{backlogTaskCount}</strong>
+              <span>Backlog tasks</span>
+            </article>
+            <article className="summary-metric-card">
+              <strong>{selectedProjectSummary.totalCards}</strong>
+              <span>Total tasks</span>
+            </article>
+            <article className="summary-metric-card">
+              <strong>{selectedProjectSummary.completedCards}</strong>
+              <span>Done</span>
+            </article>
+            <article className="summary-metric-card">
+              <strong>{selectedProjectSummary.lanes}</strong>
+              <span>Lanes</span>
+            </article>
+          </div>
+
+          {selectedProject ? (
+            <div className="summary-action-row summary-action-row--split dashboard-overview__actions">
+              <Link to={`/projects/${selectedProject.id}`} className="primary-button">
+                Open project
+              </Link>
+              <button
+                type="button"
+                className="ghost-button ghost-button--action"
+                onClick={startEditingProject}
+                disabled={isUpdatingProject || isDeletingProject}
+              >
+                Edit project
+              </button>
+              <button
+                type="button"
+                className="ghost-button ghost-button--action ghost-button--danger-solid"
+                onClick={handleDeleteProjectClick}
+                disabled={isUpdatingProject || isDeletingProject}
+              >
+                {isDeletingProject ? 'Deleting...' : 'Delete project'}
+              </button>
+            </div>
+          ) : null}
+
+          {editingProjectId === selectedProject?.id ? (
+            <form
+              className="form-grid project-edit-form"
+              onSubmit={handleUpdateProjectSubmit}
+            >
+              <label>
+                <span>Project name</span>
+                <input
+                  type="text"
+                  name="name"
+                  value={editingProjectValues.name}
+                  onChange={handleEditingProjectChange}
+                />
+              </label>
+
+              <label>
+                <span>Description</span>
+                <textarea
+                  name="description"
+                  rows="3"
+                  value={editingProjectValues.description}
+                  onChange={handleEditingProjectChange}
+                />
+              </label>
+
+              <div className="task-actions">
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={isUpdatingProject}
+                >
+                  {isUpdatingProject ? 'Saving...' : 'Save project'}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--action"
+                  onClick={cancelEditingProject}
+                  disabled={isUpdatingProject}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : null}
+        </article>
+
         <article className="card project-directory project-directory--wide">
           <div className="section-copy">
-            <h1>Projects</h1>
+            <p className="eyebrow">Projects</p>
+            <h2>Your workspaces</h2>
             <p>
-              Keep this area for organizing workspaces. Open the board only when you
-              want to work on tasks.
+              Browse the projects in this account and jump into the one you want to plan or execute.
             </p>
           </div>
 
@@ -179,114 +294,6 @@ function DashboardWorkspace({
               </article>
             ))}
           </div>
-        </article>
-
-        <article className="card board-summary board-summary--compact">
-          <div className="section-copy">
-            <p className="eyebrow">Selected project</p>
-            <h2>{selectedProject ? selectedProject.name : 'No project selected'}</h2>
-            <p>
-              {selectedProject
-                ? activeSprint
-                  ? `Active sprint: ${activeSprint.name}`
-                  : 'This project has no active sprint yet.'
-                : 'Create a project to start planning, tracking, and delivering work.'}
-            </p>
-          </div>
-
-          <div className="summary-metric-grid summary-metric-grid--compact">
-            <article className="summary-metric-card">
-              <strong>{activeSprint ? sprintTaskCount : 0}</strong>
-              <span>Sprint tasks</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{backlogTaskCount}</strong>
-              <span>Backlog tasks</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{selectedProjectSummary.totalCards}</strong>
-              <span>Total tasks</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{selectedProjectSummary.completedCards}</strong>
-              <span>Done</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{selectedProjectSummary.lanes}</strong>
-              <span>Lanes</span>
-            </article>
-          </div>
-
-          {selectedProject ? (
-            <>
-              <div className="summary-action-row summary-action-row--split">
-                <Link to={`/projects/${selectedProject.id}`} className="primary-button">
-                  Open project
-                </Link>
-                <button
-                  type="button"
-                  className="ghost-button ghost-button--action"
-                  onClick={startEditingProject}
-                  disabled={isUpdatingProject || isDeletingProject}
-                >
-                  Edit project
-                </button>
-                <button
-                  type="button"
-                  className="ghost-button ghost-button--action ghost-button--danger-solid"
-                  onClick={handleDeleteProjectClick}
-                  disabled={isUpdatingProject || isDeletingProject}
-                >
-                  {isDeletingProject ? 'Deleting...' : 'Delete project'}
-                </button>
-              </div>
-
-              {editingProjectId === selectedProject.id ? (
-                <form
-                  className="form-grid project-edit-form"
-                  onSubmit={handleUpdateProjectSubmit}
-                >
-                  <label>
-                    <span>Project name</span>
-                    <input
-                      type="text"
-                      name="name"
-                      value={editingProjectValues.name}
-                      onChange={handleEditingProjectChange}
-                    />
-                  </label>
-
-                  <label>
-                    <span>Description</span>
-                    <textarea
-                      name="description"
-                      rows="3"
-                      value={editingProjectValues.description}
-                      onChange={handleEditingProjectChange}
-                    />
-                  </label>
-
-                  <div className="task-actions">
-                    <button
-                      type="submit"
-                      className="primary-button"
-                      disabled={isUpdatingProject}
-                    >
-                      {isUpdatingProject ? 'Saving...' : 'Save project'}
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-button ghost-button--action"
-                      onClick={cancelEditingProject}
-                      disabled={isUpdatingProject}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-            </>
-          ) : null}
         </article>
 
         <article className="card project-creation-panel">

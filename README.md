@@ -7,8 +7,9 @@ Este proyecto busca construir una aplicacion de gestion de proyectos inspirada e
 La aplicacion debe permitir que una persona o equipo:
 
 - cree y gestione tareas
-- organice trabajo por columnas Kanban
+- organice trabajo por columnas Kanban dentro de cada sprint
 - planifique sprints
+- mantenga un backlog de proyecto fuera del sprint
 - vea progreso del equipo en tiempo real
 
 ## Recomendacion para empezar
@@ -21,11 +22,12 @@ Version 1:
 
 - autenticacion basica
 - creacion de workspace
-- tablero Kanban
+- tablero Kanban por sprint
 - columnas fijas: `Backlog`, `To Do`, `In Progress`, `Review`, `Done`
 - crear, editar y mover tareas
-- backlog de sprint
+- backlog de proyecto
 - crear un sprint activo
+- mover tareas del backlog al sprint activo
 
 Version 2:
 
@@ -88,9 +90,9 @@ La primera entrega deberia permitir:
 
 1. iniciar sesion
 2. abrir un proyecto
-3. ver un tablero Kanban
-4. crear una tarea
-5. mover la tarea entre columnas
+3. gestionar el backlog del proyecto
+4. abrir el tablero del sprint activo
+5. mover la tarea entre columnas del sprint
 
 Si eso funciona, ya tenemos una base muy buena sobre la cual agregar SCRUM.
 
