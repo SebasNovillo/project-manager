@@ -309,6 +309,69 @@ textarea {
   font-size: 0.92rem;
 }
 
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(16, 32, 58, 0.34);
+  backdrop-filter: blur(10px);
+}
+
+.dialog-card {
+  width: min(540px, 100%);
+  border: 1px solid rgba(16, 32, 58, 0.08);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.08), transparent 32%),
+    rgba(255, 251, 247, 0.98);
+  box-shadow: 0 28px 60px rgba(16, 32, 58, 0.2);
+}
+
+.dialog-form {
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
+}
+
+.dialog-copy {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dialog-copy h2,
+.dialog-copy p {
+  margin: 0;
+}
+
+.dialog-copy p {
+  color: var(--text-muted);
+}
+
+.dialog-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dialog-field span {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.dialog-field small {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .board-feedback {
   display: grid;
   gap: 0.6rem;

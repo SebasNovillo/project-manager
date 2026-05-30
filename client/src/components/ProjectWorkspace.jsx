@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
+import ActionDialog from './ActionDialog';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
 
@@ -81,6 +82,9 @@ function ProjectWorkspace({
     labels: '',
     dueDate: ''
   });
+  const [isDeleteProjectDialogOpen, setIsDeleteProjectDialogOpen] = useState(false);
+  const [isCompleteSprintDialogOpen, setIsCompleteSprintDialogOpen] = useState(false);
+  const [taskPendingDelete, setTaskPendingDelete] = useState(null);
 
   const activeSprint = useMemo(
     () => selectedProject?.sprints?.find((sprint) => sprint.status === 'active') || null,
@@ -199,20 +203,21 @@ function ProjectWorkspace({
     });
   };
 
-  const handleDeleteProjectClick = async () => {
+  const openDeleteProjectDialog = () => {
     if (!selectedProject) {
       return;
     }
 
-    const confirmation = window.prompt(
-      `Type "${selectedProject.name}" to delete this project, including its columns, tasks, and sprints.`
-    );
+    setIsDeleteProjectDialogOpen(true);
+  };
 
-    if (confirmation !== selectedProject.name) {
+  const handleDeleteProjectConfirm = async () => {
+    if (!selectedProject) {
       return;
     }
 
     await onDeleteProject(selectedProject.id);
+    setIsDeleteProjectDialogOpen(false);
     navigate('/');
   };
 
@@ -294,24 +299,21 @@ function ProjectWorkspace({
     });
   };
 
-  const handleCompleteSprintClick = async () => {
+  const openCompleteSprintDialog = () => {
     if (!selectedProject || !activeSprint) {
       return;
     }
 
-    const confirmationMessage = incompleteSprintTaskCount
-      ? `Close "${activeSprint.name}" with ${incompleteSprintTaskCount} incomplete task${
-          incompleteSprintTaskCount === 1 ? '' : 's'
-        }?`
-      : `Close "${activeSprint.name}" now?`;
+    setIsCompleteSprintDialogOpen(true);
+  };
 
-    const confirmed = window.confirm(confirmationMessage);
-
-    if (!confirmed) {
+  const handleCompleteSprintConfirm = async () => {
+    if (!selectedProject || !activeSprint) {
       return;
     }
 
     await onCompleteSprint(selectedProject.id, activeSprint.id);
+    setIsCompleteSprintDialogOpen(false);
   };
 
   const startEditingBacklogTask = (task) => {
@@ -353,22 +355,26 @@ function ProjectWorkspace({
     cancelEditingBacklogTask();
   };
 
-  const handleDeleteBacklogTask = async (task) => {
+  const openDeleteBacklogTaskDialog = (task) => {
     if (!selectedProject) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete "${task.title}" from the backlog?`);
+    setTaskPendingDelete(task);
+  };
 
-    if (!confirmed) {
+  const handleDeleteBacklogTaskConfirm = async () => {
+    if (!selectedProject || !taskPendingDelete) {
       return;
     }
 
-    await onDeleteTask(selectedProject.id, task.id);
+    await onDeleteTask(selectedProject.id, taskPendingDelete.id);
 
-    if (editingBacklogTaskId === task.id) {
+    if (editingBacklogTaskId === taskPendingDelete.id) {
       cancelEditingBacklogTask();
     }
+
+    setTaskPendingDelete(null);
   };
 
   if (isLoading) {
@@ -413,7 +419,7 @@ function ProjectWorkspace({
           <button
             type="button"
             className="ghost-button ghost-button--action ghost-button--danger-solid"
-            onClick={handleDeleteProjectClick}
+            onClick={openDeleteProjectDialog}
             disabled={isUpdatingProject || isDeletingProject}
           >
             {isDeletingProject ? 'Deleting...' : 'Delete project'}
@@ -505,7 +511,7 @@ function ProjectWorkspace({
               <button
                 type="button"
                 className="ghost-button ghost-button--panel"
-                onClick={handleCompleteSprintClick}
+                onClick={openCompleteSprintDialog}
                 disabled={isCompletingSprint}
               >
                 {isCompletingSprint ? 'Closing sprint...' : 'Complete sprint'}
@@ -756,7 +762,7 @@ function ProjectWorkspace({
                         <button
                           type="button"
                           className="ghost-button ghost-button--action ghost-button--danger-solid"
-                          onClick={() => handleDeleteBacklogTask(task)}
+                          onClick={() => openDeleteBacklogTaskDialog(task)}
                           disabled={isUpdatingTask || isDeletingTask}
                         >
                           {isDeletingTask ? 'Deleting...' : 'Delete'}
@@ -826,6 +832,48 @@ function ProjectWorkspace({
           ) : null}
         </article>
       </section>
+
+      <ActionDialog
+        isOpen={isDeleteProjectDialogOpen}
+        title={`Delete ${selectedProject?.name || 'project'}?`}
+        description="This action will remove the project, its columns, every task, and its sprint history."
+        confirmLabel={isDeletingProject ? 'Deleting...' : 'Delete project'}
+        tone="danger"
+        isBusy={isDeletingProject}
+        requiredText={selectedProject?.name || ''}
+        inputLabel="Project name"
+        inputPlaceholder={selectedProject?.name || ''}
+        inputHelp="Type the project name exactly to confirm permanent deletion."
+        onClose={() => setIsDeleteProjectDialogOpen(false)}
+        onConfirm={handleDeleteProjectConfirm}
+      />
+
+      <ActionDialog
+        isOpen={isCompleteSprintDialogOpen}
+        title={`Complete ${activeSprint?.name || 'sprint'}?`}
+        description={
+          incompleteSprintTaskCount
+            ? `This sprint still has ${incompleteSprintTaskCount} incomplete task${
+                incompleteSprintTaskCount === 1 ? '' : 's'
+              }. You can still close it, but unfinished work will need follow-up.`
+            : 'All visible sprint work is done. You can close this sprint now.'
+        }
+        confirmLabel={isCompletingSprint ? 'Closing sprint...' : 'Complete sprint'}
+        isBusy={isCompletingSprint}
+        onClose={() => setIsCompleteSprintDialogOpen(false)}
+        onConfirm={handleCompleteSprintConfirm}
+      />
+
+      <ActionDialog
+        isOpen={Boolean(taskPendingDelete)}
+        title={`Delete ${taskPendingDelete?.title || 'task'}?`}
+        description="This backlog task will be permanently removed from the project."
+        confirmLabel={isDeletingTask ? 'Deleting...' : 'Delete task'}
+        tone="danger"
+        isBusy={isDeletingTask}
+        onClose={() => setTaskPendingDelete(null)}
+        onConfirm={handleDeleteBacklogTaskConfirm}
+      />
     </section>
   );
 }

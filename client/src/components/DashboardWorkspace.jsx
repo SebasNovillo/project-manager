@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import ActionDialog from './ActionDialog';
 
 function DashboardWorkspace({
   projects,
@@ -23,6 +24,7 @@ function DashboardWorkspace({
     name: '',
     description: ''
   });
+  const [isDeleteProjectDialogOpen, setIsDeleteProjectDialogOpen] = useState(false);
 
   const selectedProjectSummary = useMemo(() => {
     if (!selectedProject) {
@@ -129,21 +131,22 @@ function DashboardWorkspace({
     cancelEditingProject();
   };
 
-  const handleDeleteProjectClick = async () => {
+  const openDeleteProjectDialog = () => {
     if (!selectedProject) {
       return;
     }
 
-    const confirmation = window.prompt(
-      `Type "${selectedProject.name}" to delete this project, including its columns, tasks, and sprints.`
-    );
+    setIsDeleteProjectDialogOpen(true);
+  };
 
-    if (confirmation !== selectedProject.name) {
+  const handleDeleteProjectConfirm = async () => {
+    if (!selectedProject) {
       return;
     }
 
     await onDeleteProject(selectedProject.id);
     cancelEditingProject();
+    setIsDeleteProjectDialogOpen(false);
   };
 
   return (
@@ -201,7 +204,7 @@ function DashboardWorkspace({
               <button
                 type="button"
                 className="ghost-button ghost-button--action ghost-button--danger-solid"
-                onClick={handleDeleteProjectClick}
+                onClick={openDeleteProjectDialog}
                 disabled={isUpdatingProject || isDeletingProject}
               >
                 {isDeletingProject ? 'Deleting...' : 'Delete project'}
@@ -335,6 +338,21 @@ function DashboardWorkspace({
           </form>
         </article>
       </section>
+
+      <ActionDialog
+        isOpen={isDeleteProjectDialogOpen}
+        title={`Delete ${selectedProject?.name || 'project'}?`}
+        description="This action will remove the project, its columns, every task, and its sprint history."
+        confirmLabel={isDeletingProject ? 'Deleting...' : 'Delete project'}
+        tone="danger"
+        isBusy={isDeletingProject}
+        requiredText={selectedProject?.name || ''}
+        inputLabel="Project name"
+        inputPlaceholder={selectedProject?.name || ''}
+        inputHelp="Type the project name exactly to confirm permanent deletion."
+        onClose={() => setIsDeleteProjectDialogOpen(false)}
+        onConfirm={handleDeleteProjectConfirm}
+      />
     </section>
   );
 }
