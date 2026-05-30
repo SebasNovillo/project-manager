@@ -859,6 +859,7 @@ function ProjectWorkspace({
             : 'All visible sprint work is done. You can close this sprint now.'
         }
         confirmLabel={isCompletingSprint ? 'Closing sprint...' : 'Complete sprint'}
+        tone="warning"
         isBusy={isCompletingSprint}
         onClose={() => setIsCompleteSprintDialogOpen(false)}
         onConfirm={handleCompleteSprintConfirm}

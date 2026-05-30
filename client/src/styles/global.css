@@ -324,10 +324,35 @@ textarea {
   width: min(540px, 100%);
   border: 1px solid rgba(16, 32, 58, 0.08);
   border-radius: 28px;
+  box-shadow: 0 28px 60px rgba(16, 32, 58, 0.2);
+}
+
+.dialog-card--default {
   background:
     radial-gradient(circle at top right, rgba(96, 165, 250, 0.08), transparent 32%),
     rgba(255, 251, 247, 0.98);
-  box-shadow: 0 28px 60px rgba(16, 32, 58, 0.2);
+}
+
+.dialog-card--warning {
+  background:
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 34%),
+    rgba(255, 251, 247, 0.98);
+  border-color: rgba(245, 158, 11, 0.18);
+}
+
+.dialog-card--danger {
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.12), transparent 34%),
+    rgba(255, 250, 249, 0.98);
+  border-color: rgba(239, 68, 68, 0.18);
+}
+
+.dialog-card--warning .eyebrow {
+  color: #9a5a09;
+}
+
+.dialog-card--danger .eyebrow {
+  color: #b42318;
 }
 
 .dialog-form {

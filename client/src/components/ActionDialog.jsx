@@ -30,6 +30,12 @@ function ActionDialog({
   const needsTypedConfirmation = Boolean(requiredText);
   const isConfirmDisabled =
     isBusy || (needsTypedConfirmation && value !== requiredText);
+  const toneClassName =
+    tone === 'danger'
+      ? 'dialog-card--danger'
+      : tone === 'warning'
+        ? 'dialog-card--warning'
+        : 'dialog-card--default';
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -44,7 +50,7 @@ function ActionDialog({
   return (
     <div className="dialog-overlay" role="presentation" onClick={isBusy ? undefined : onClose}>
       <div
-        className="dialog-card"
+        className={`dialog-card ${toneClassName}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
