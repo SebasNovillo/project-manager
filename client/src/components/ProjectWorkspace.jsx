@@ -14,6 +14,20 @@ function formatDate(value) {
   });
 }
 
+function formatDateInput(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 function normalizeLabels(value) {
   return value
     .split(',')
@@ -28,6 +42,7 @@ function ProjectWorkspace({
   onCreateTask,
   onUpdateProject,
   onUpdateTask,
+  onDeleteTask,
   onDeleteProject,
   onCreateSprint,
   onCompleteSprint,
@@ -56,6 +71,14 @@ function ProjectWorkspace({
     dueDate: ''
   });
   const [isBacklogComposerOpen, setIsBacklogComposerOpen] = useState(false);
+  const [editingBacklogTaskId, setEditingBacklogTaskId] = useState('');
+  const [editingBacklogTaskValues, setEditingBacklogTaskValues] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    labels: '',
+    dueDate: ''
+  });
 
   const activeSprint = useMemo(
     () => selectedProject?.sprints?.find((sprint) => sprint.status === 'active') || null,
@@ -97,6 +120,7 @@ function ProjectWorkspace({
 
     return doneColumn?.tasks.filter((task) => task.sprintId === activeSprint.id).length || 0;
   }, [activeSprint, selectedProject]);
+  const incompleteSprintTaskCount = Math.max(sprintTaskCount - sprintDoneCount, 0);
 
   const backlogTasks = useMemo(() => {
     if (!selectedProject) {
@@ -207,6 +231,15 @@ function ProjectWorkspace({
     }));
   };
 
+  const handleEditingBacklogTaskChange = (event) => {
+    const { name, value } = event.target;
+
+    setEditingBacklogTaskValues((currentValues) => ({
+      ...currentValues,
+      [name]: value
+    }));
+  };
+
   const handleSprintSubmit = async (event) => {
     event.preventDefault();
 
@@ -258,6 +291,83 @@ function ProjectWorkspace({
     });
   };
 
+  const handleCompleteSprintClick = async () => {
+    if (!selectedProject || !activeSprint) {
+      return;
+    }
+
+    const confirmationMessage = incompleteSprintTaskCount
+      ? `Close "${activeSprint.name}" with ${incompleteSprintTaskCount} incomplete task${
+          incompleteSprintTaskCount === 1 ? '' : 's'
+        }?`
+      : `Close "${activeSprint.name}" now?`;
+
+    const confirmed = window.confirm(confirmationMessage);
+
+    if (!confirmed) {
+      return;
+    }
+
+    await onCompleteSprint(selectedProject.id, activeSprint.id);
+  };
+
+  const startEditingBacklogTask = (task) => {
+    setEditingBacklogTaskId(task.id);
+    setEditingBacklogTaskValues({
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority || 'medium',
+      labels: (task.labels || []).join(', '),
+      dueDate: formatDateInput(task.dueDate)
+    });
+  };
+
+  const cancelEditingBacklogTask = () => {
+    setEditingBacklogTaskId('');
+    setEditingBacklogTaskValues({
+      title: '',
+      description: '',
+      priority: 'medium',
+      labels: '',
+      dueDate: ''
+    });
+  };
+
+  const handleUpdateBacklogTaskSubmit = async (event, taskId) => {
+    event.preventDefault();
+
+    if (!selectedProject || !editingBacklogTaskValues.title.trim()) {
+      return;
+    }
+
+    await onUpdateTask(selectedProject.id, taskId, {
+      title: editingBacklogTaskValues.title.trim(),
+      description: editingBacklogTaskValues.description,
+      priority: editingBacklogTaskValues.priority,
+      labels: normalizeLabels(editingBacklogTaskValues.labels),
+      dueDate: editingBacklogTaskValues.dueDate || null
+    });
+    cancelEditingBacklogTask();
+  };
+
+  const handleDeleteBacklogTask = async (task) => {
+    if (!selectedProject) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete "${task.title}" from the backlog?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    await onDeleteTask(selectedProject.id, task.id);
+
+    if (editingBacklogTaskId === task.id) {
+      cancelEditingBacklogTask();
+    }
+  };
+
   if (isLoading) {
     return (
       <article className="card board-empty">
@@ -305,9 +415,6 @@ function ProjectWorkspace({
           >
             {isDeletingProject ? 'Deleting...' : 'Delete project'}
           </button>
-          <Link to="/" className="ghost-button ghost-button--panel">
-            Back to dashboard
-          </Link>
         </div>
 
         {!activeSprint ? (
@@ -395,7 +502,7 @@ function ProjectWorkspace({
               <button
                 type="button"
                 className="ghost-button ghost-button--panel"
-                onClick={() => onCompleteSprint(selectedProject.id, activeSprint.id)}
+                onClick={handleCompleteSprintClick}
                 disabled={isCompletingSprint}
               >
                 {isCompletingSprint ? 'Closing sprint...' : 'Complete sprint'}
@@ -551,22 +658,121 @@ function ProjectWorkspace({
             <div className="project-backlog-list">
               {backlogTasks.map((task) => (
                 <article key={task.id} className="project-backlog-item">
-                  <div>
-                    <strong>{task.title}</strong>
-                    <p>{[task.columnName, task.description].filter(Boolean).join(' - ')}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--panel"
-                    disabled={!activeSprint || isUpdatingTask}
-                    onClick={() => handleAddTaskToSprint(task.id)}
-                  >
-                    {!activeSprint
-                      ? 'Start a sprint first'
-                      : isUpdatingTask
-                        ? 'Adding...'
-                        : 'Add to sprint'}
-                  </button>
+                  {editingBacklogTaskId === task.id ? (
+                    <form
+                      className="form-grid project-backlog-edit-form"
+                      onSubmit={(event) => handleUpdateBacklogTaskSubmit(event, task.id)}
+                    >
+                      <label>
+                        <span>Task title</span>
+                        <input
+                          type="text"
+                          name="title"
+                          value={editingBacklogTaskValues.title}
+                          onChange={handleEditingBacklogTaskChange}
+                        />
+                      </label>
+
+                      <label>
+                        <span>Description</span>
+                        <textarea
+                          name="description"
+                          rows="3"
+                          value={editingBacklogTaskValues.description}
+                          onChange={handleEditingBacklogTaskChange}
+                        />
+                      </label>
+
+                      <div className="task-meta-grid">
+                        <label>
+                          <span>Priority</span>
+                          <select
+                            name="priority"
+                            value={editingBacklogTaskValues.priority}
+                            onChange={handleEditingBacklogTaskChange}
+                          >
+                            {priorityOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label>
+                          <span>Due date</span>
+                          <input
+                            type="date"
+                            name="dueDate"
+                            value={editingBacklogTaskValues.dueDate}
+                            onChange={handleEditingBacklogTaskChange}
+                          />
+                        </label>
+                      </div>
+
+                      <label>
+                        <span>Labels</span>
+                        <input
+                          type="text"
+                          name="labels"
+                          value={editingBacklogTaskValues.labels}
+                          onChange={handleEditingBacklogTaskChange}
+                        />
+                      </label>
+
+                      <div className="task-actions">
+                        <button type="submit" className="primary-button" disabled={isUpdatingTask}>
+                          {isUpdatingTask ? 'Saving...' : 'Save task'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button--action"
+                          onClick={cancelEditingBacklogTask}
+                          disabled={isUpdatingTask}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="project-backlog-item__copy">
+                        <strong>{task.title}</strong>
+                        <p>{[task.columnName, task.description].filter(Boolean).join(' - ')}</p>
+                      </div>
+
+                      <div className="project-backlog-item__actions">
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button--action"
+                          onClick={() => startEditingBacklogTask(task)}
+                          disabled={isUpdatingTask || isDeletingTask}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button--action ghost-button--danger-solid"
+                          onClick={() => handleDeleteBacklogTask(task)}
+                          disabled={isUpdatingTask || isDeletingTask}
+                        >
+                          {isDeletingTask ? 'Deleting...' : 'Delete'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button--panel"
+                          disabled={!activeSprint || isUpdatingTask || isDeletingTask}
+                          onClick={() => handleAddTaskToSprint(task.id)}
+                        >
+                          {!activeSprint
+                            ? 'Start a sprint first'
+                            : isUpdatingTask
+                              ? 'Adding...'
+                              : 'Add to sprint'}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </article>
               ))}
             </div>
