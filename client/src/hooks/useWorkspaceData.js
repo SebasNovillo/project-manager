@@ -300,18 +300,21 @@ function useWorkspaceData() {
   const handleCompleteSprint = async (projectId, sprintId) => {
     try {
       setIsCompletingSprint(true);
-      const completedSprint = await completeSprintRequest(sprintId, token);
+      await completeSprintRequest(sprintId, token);
+      const items = await getProjects(token);
 
-      setProjects((currentProjects) =>
-        updateProjectInList(currentProjects, projectId, (project) => ({
-          ...project,
-          sprints: (project.sprints || []).map((sprint) =>
-            sprint.id === sprintId ? completedSprint : sprint
-          )
-        }))
-      );
+      setProjects(items);
+      setSelectedProjectId((currentId) => {
+        const hasCurrent = items.some((project) => project.id === currentId);
+
+        if (hasCurrent) {
+          return currentId;
+        }
+
+        return items[0]?.id || '';
+      });
       setError('');
-      return completedSprint;
+      return items.find((project) => project.id === projectId) || null;
     } catch (requestError) {
       handleWorkspaceError(requestError);
       throw requestError;

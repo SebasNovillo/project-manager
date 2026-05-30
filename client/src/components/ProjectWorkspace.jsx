@@ -15,6 +15,10 @@ function formatDate(value) {
   });
 }
 
+function getSprintCompletedDateLabel(sprint) {
+  return formatDate(sprint?.completedAt || sprint?.endDate);
+}
+
 function formatDateInput(value) {
   if (!value) {
     return '';
@@ -85,6 +89,7 @@ function ProjectWorkspace({
   const [isDeleteProjectDialogOpen, setIsDeleteProjectDialogOpen] = useState(false);
   const [isCompleteSprintDialogOpen, setIsCompleteSprintDialogOpen] = useState(false);
   const [taskPendingDelete, setTaskPendingDelete] = useState(null);
+  const projectColumns = selectedProject?.columns || [];
 
   const activeSprint = useMemo(
     () => selectedProject?.sprints?.find((sprint) => sprint.status === 'active') || null,
@@ -100,32 +105,32 @@ function ProjectWorkspace({
       return 0;
     }
 
-    return selectedProject.columns.reduce(
+    return projectColumns.reduce(
       (count, column) =>
         count + column.tasks.filter((task) => task.sprintId === activeSprint.id).length,
       0
     );
-  }, [activeSprint, selectedProject]);
+  }, [activeSprint, projectColumns, selectedProject]);
 
   const projectTaskCount = useMemo(() => {
     if (!selectedProject) {
       return 0;
     }
 
-    return selectedProject.columns.reduce((count, column) => count + column.tasks.length, 0);
-  }, [selectedProject]);
+    return projectColumns.reduce((count, column) => count + column.tasks.length, 0);
+  }, [projectColumns, selectedProject]);
 
   const sprintDoneCount = useMemo(() => {
     if (!selectedProject || !activeSprint) {
       return 0;
     }
 
-    const doneColumn = selectedProject.columns.find(
+    const doneColumn = projectColumns.find(
       (column) => column.name.toLowerCase() === 'done'
     );
 
     return doneColumn?.tasks.filter((task) => task.sprintId === activeSprint.id).length || 0;
-  }, [activeSprint, selectedProject]);
+  }, [activeSprint, projectColumns, selectedProject]);
   const incompleteSprintTaskCount = Math.max(sprintTaskCount - sprintDoneCount, 0);
 
   const backlogTasks = useMemo(() => {
@@ -133,7 +138,7 @@ function ProjectWorkspace({
       return [];
     }
 
-    return selectedProject.columns.flatMap((column) =>
+    return projectColumns.flatMap((column) =>
       column.tasks
         .filter((task) => !task.sprintId)
         .map((task) => ({
@@ -141,9 +146,29 @@ function ProjectWorkspace({
           columnName: column.name
         }))
     );
-  }, [selectedProject]);
+  }, [projectColumns, selectedProject]);
 
   const backlogTaskCount = backlogTasks.length;
+  const carryOverBacklogTaskCount = backlogTasks.filter((task) => task.carryOverSprintId).length;
+  const historyTaskCountBySprintId = useMemo(() => {
+    if (!selectedProject) {
+      return {};
+    }
+
+    return projectColumns
+      .flatMap((column) => column.tasks)
+      .reduce((lookup, task) => {
+        if (task.sprintId) {
+          lookup[task.sprintId] = (lookup[task.sprintId] || 0) + 1;
+        }
+
+        if (task.carryOverSprintId) {
+          lookup[task.carryOverSprintId] = (lookup[task.carryOverSprintId] || 0) + 1;
+        }
+
+        return lookup;
+      }, {});
+  }, [projectColumns, selectedProject]);
 
   const backlogColumn = useMemo(() => {
     if (!selectedProject) {
@@ -151,13 +176,13 @@ function ProjectWorkspace({
     }
 
     return (
-      selectedProject.columns.find(
+      projectColumns.find(
         (column) => column.name.toLowerCase() === 'backlog'
       ) ||
-      selectedProject.columns[0] ||
+      projectColumns[0] ||
       null
     );
-  }, [selectedProject]);
+  }, [projectColumns, selectedProject]);
 
   const handleEditingProjectChange = (event) => {
     const { name, value } = event.target;
@@ -573,7 +598,7 @@ function ProjectWorkspace({
               <span>Total tasks</span>
             </article>
             <article className="summary-metric-card">
-              <strong>{selectedProject.columns.length}</strong>
+              <strong>{projectColumns.length}</strong>
               <span>Lanes</span>
             </article>
             <article className="summary-metric-card">
@@ -594,6 +619,12 @@ function ProjectWorkspace({
               Backlog tasks live in <strong>{backlogColumn?.name || 'Backlog'}</strong> until they are assigned to a sprint.
             </span>
           </div>
+
+          {carryOverBacklogTaskCount ? (
+            <p className="status-copy project-backlog-carryover-note">
+              {carryOverBacklogTaskCount} task{carryOverBacklogTaskCount === 1 ? '' : 's'} moved here after the last sprint was closed.
+            </p>
+          ) : null}
 
           {isBacklogComposerOpen ? (
             <form className="form-grid sprint-form" onSubmit={handleBacklogTaskSubmit}>
@@ -748,6 +779,17 @@ function ProjectWorkspace({
                       <div className="project-backlog-item__copy">
                         <strong>{task.title}</strong>
                         <p>{[task.columnName, task.description].filter(Boolean).join(' - ')}</p>
+                        {task.carryOverSprintName || task.carryOverColumnName ? (
+                          <div className="project-backlog-item__meta">
+                            <span className="project-backlog-pill">Carry over</span>
+                            {task.carryOverSprintName ? (
+                              <span className="status-copy">From {task.carryOverSprintName}</span>
+                            ) : null}
+                            {task.carryOverColumnName ? (
+                              <span className="status-copy">Left in {task.carryOverColumnName}</span>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className="project-backlog-item__actions">
@@ -812,9 +854,9 @@ function ProjectWorkspace({
                     <p>{sprint.goal || 'No sprint goal was added.'}</p>
                     <div className="history-sprint-item__meta">
                       <span className="history-sprint-item__pill">
-                        {sprint.tasks?.length || 0} tasks
+                        {historyTaskCountBySprintId[sprint.id] || 0} tasks
                       </span>
-                      <span className="status-copy">Ended {formatDate(sprint.endDate)}</span>
+                      <span className="status-copy">Ended {getSprintCompletedDateLabel(sprint)}</span>
                     </div>
                   </div>
 
@@ -855,7 +897,7 @@ function ProjectWorkspace({
           incompleteSprintTaskCount
             ? `This sprint still has ${incompleteSprintTaskCount} incomplete task${
                 incompleteSprintTaskCount === 1 ? '' : 's'
-              }. You can still close it, but unfinished work will need follow-up.`
+              }. They will move back to the project backlog and keep carry-over context.`
             : 'All visible sprint work is done. You can close this sprint now.'
         }
         confirmLabel={isCompletingSprint ? 'Closing sprint...' : 'Complete sprint'}

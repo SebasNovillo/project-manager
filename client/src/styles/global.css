@@ -687,6 +687,14 @@ textarea {
   min-width: 0;
 }
 
+.project-backlog-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  margin-top: 0.65rem;
+}
+
 .project-backlog-item strong {
   display: block;
   margin-bottom: 0.2rem;
@@ -704,6 +712,18 @@ textarea {
   align-items: center;
 }
 
+.project-backlog-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #9a5a09;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .project-backlog-edit-form {
   width: 100%;
 }
@@ -714,6 +734,12 @@ textarea {
 
 .project-backlog-toolbar .status-copy strong {
   color: #35507a;
+}
+
+.project-backlog-carryover-note {
+  margin-top: -0.2rem;
+  color: #9a5a09;
+  font-weight: 600;
 }
 
 .project-backlog-empty {
@@ -1138,6 +1164,16 @@ textarea {
   color: var(--text-muted);
   font-size: 0.92rem;
   overflow-wrap: anywhere;
+}
+
+.task-history-note {
+  margin-top: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #9a5a09 !important;
+  font-size: 0.84rem !important;
+  font-weight: 600;
 }
 
 .task-meta-row {

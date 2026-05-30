@@ -41,6 +41,29 @@ function getTaskDraggableId(taskId) {
   return `task-${taskId}`;
 }
 
+function matchesSprintBoardTask(task, sprint) {
+  if (!sprint) {
+    return false;
+  }
+
+  return (
+    task.sprintId === sprint.id ||
+    (sprint.status !== 'active' && task.carryOverSprintId === sprint.id)
+  );
+}
+
+function getSprintBoardColumnName(task, sprint, currentColumnName) {
+  if (
+    sprint?.status !== 'active' &&
+    task.carryOverSprintId === sprint.id &&
+    task.carryOverColumnName
+  ) {
+    return task.carryOverColumnName;
+  }
+
+  return currentColumnName;
+}
+
 function DroppableColumn({
   column,
   isActive,
@@ -179,7 +202,9 @@ function BoardWorkspace({
       .find((task) => task.id === activeDragTaskId) || null;
   }, [activeDragTaskId, selectedProject]);
   const boardStats = useMemo(() => {
-    if (!selectedProject) {
+    const routeSprint = selectedProject?.sprints?.find((sprint) => sprint.id === sprintId) || null;
+
+    if (!selectedProject || !routeSprint) {
       return {
         totalTasks: 0,
         inFlow: 0,
@@ -188,13 +213,17 @@ function BoardWorkspace({
     }
 
     const scopedTasks = selectedProject.columns.flatMap((column) =>
-      column.tasks.filter((task) => !sprintId || task.sprintId === sprintId)
+      column.tasks
+        .filter((task) => matchesSprintBoardTask(task, routeSprint))
+        .map((task) => ({
+          ...task,
+          boardColumnName: getSprintBoardColumnName(task, routeSprint, column.name)
+        }))
     );
     const totalTasks = scopedTasks.length;
-    const doneColumn = selectedProject.columns.find(
-      (column) => column.name.toLowerCase() === 'done'
-    );
-    const done = doneColumn?.tasks.filter((task) => !sprintId || task.sprintId === sprintId).length || 0;
+    const done = scopedTasks.filter(
+      (task) => task.boardColumnName?.toLowerCase() === 'done'
+    ).length;
 
     return {
       totalTasks,
@@ -212,23 +241,35 @@ function BoardWorkspace({
       return 0;
     }
 
-    return selectedProject.columns.reduce(
-      (count, column) =>
-        count + column.tasks.filter((task) => task.sprintId === selectedSprint.id).length,
-      0
-    );
+    return selectedProject.columns.reduce((count, column) => {
+      return (
+        count +
+        column.tasks.filter((task) => matchesSprintBoardTask(task, selectedSprint)).length
+      );
+    }, 0);
   }, [selectedProject, selectedSprint]);
   const scopedColumns = useMemo(() => {
-    if (!selectedProject) {
+    if (!selectedProject || !selectedSprint) {
       return [];
     }
 
-    return selectedSprint
-      ? selectedProject.columns.map((column) => ({
-          ...column,
-          tasks: column.tasks.filter((task) => task.sprintId === selectedSprint.id)
+    const sprintTasks = selectedProject.columns.flatMap((column) =>
+      column.tasks
+        .filter((task) => matchesSprintBoardTask(task, selectedSprint))
+        .map((task) => ({
+          ...task,
+          boardColumnName: getSprintBoardColumnName(task, selectedSprint, column.name),
+          isCarriedOverFromHistory:
+            selectedSprint.status !== 'active' && task.carryOverSprintId === selectedSprint.id
         }))
-      : [];
+    );
+
+    return selectedProject.columns.map((column) => ({
+      ...column,
+      tasks: sprintTasks.filter(
+        (task) => task.boardColumnName?.toLowerCase() === column.name.toLowerCase()
+      )
+    }));
   }, [selectedProject, selectedSprint]);
 
   const visibleColumns = useMemo(() => {
@@ -865,6 +906,11 @@ function BoardWorkspace({
                                         </span>
                                       </div>
                                       <p>{task.description || 'No description yet.'}</p>
+                                      {task.isCarriedOverFromHistory ? (
+                                        <p className="task-history-note">
+                                          Carried over after sprint close from {task.carryOverColumnName || 'this stage'}.
+                                        </p>
+                                      ) : null}
                                       {task.labels?.length ? (
                                         <div className="label-row">
                                           {task.labels.map((label) => (

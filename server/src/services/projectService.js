@@ -28,8 +28,8 @@ const projectDetailInclude = {
   }
 };
 
-export async function getProjectsForUser(userId) {
-  return prisma.project.findMany({
+function buildProjectQuery(userId) {
+  return {
     where: {
       ownerId: userId
     },
@@ -37,7 +37,100 @@ export async function getProjectsForUser(userId) {
     orderBy: {
       createdAt: 'desc'
     }
-  });
+  };
+}
+
+async function repairLegacyCompletedSprintData(projects) {
+  const operations = [];
+
+  for (const project of projects) {
+    const backlogColumn =
+      project.columns.find((column) => column.name.toLowerCase() === 'backlog') ||
+      project.columns[0] ||
+      null;
+
+    if (!backlogColumn) {
+      continue;
+    }
+
+    const completedSprints = new Map(
+      project.sprints
+        .filter((sprint) => sprint.status !== 'active')
+        .map((sprint) => [sprint.id, sprint])
+    );
+
+    if (!completedSprints.size) {
+      continue;
+    }
+
+    let nextBacklogPosition = backlogColumn.tasks.filter((task) => !task.sprintId).length;
+
+    for (const sprint of completedSprints.values()) {
+      if (!sprint.completedAt) {
+        operations.push(
+          prisma.sprint.update({
+            where: {
+              id: sprint.id
+            },
+            data: {
+              completedAt: sprint.updatedAt
+            }
+          })
+        );
+      }
+    }
+
+    for (const column of project.columns) {
+      if (column.name.toLowerCase() === 'done') {
+        continue;
+      }
+
+      for (const task of column.tasks) {
+        if (!task.sprintId || !completedSprints.has(task.sprintId)) {
+          continue;
+        }
+
+        const sprint = completedSprints.get(task.sprintId);
+        const nextPosition =
+          task.columnId === backlogColumn.id ? task.position : nextBacklogPosition++;
+
+        operations.push(
+          prisma.task.update({
+            where: {
+              id: task.id
+            },
+            data: {
+              sprintId: null,
+              columnId: backlogColumn.id,
+              position: nextPosition,
+              carryOverSprintId: task.carryOverSprintId || sprint.id,
+              carryOverSprintName: task.carryOverSprintName || sprint.name,
+              carryOverColumnName: task.carryOverColumnName || column.name
+            }
+          })
+        );
+      }
+    }
+  }
+
+  if (!operations.length) {
+    return false;
+  }
+
+  await prisma.$transaction(operations);
+  return true;
+}
+
+export async function getProjectsForUser(userId) {
+  const projectQuery = buildProjectQuery(userId);
+  const projects = await prisma.project.findMany(projectQuery);
+  const didRepairLegacyData = await repairLegacyCompletedSprintData(projects);
+
+  if (!didRepairLegacyData) {
+    return projects;
+  }
+
+  return prisma.project.findMany(projectQuery);
 }
 
 export async function createProjectForUser(userId, payload) {
@@ -175,6 +268,24 @@ export async function completeSprintForUser(userId, sprintId) {
       project: {
         ownerId: userId
       }
+    },
+    include: {
+      project: {
+        include: {
+          columns: {
+            include: {
+              tasks: {
+                orderBy: {
+                  position: 'asc'
+                }
+              }
+            },
+            orderBy: {
+              position: 'asc'
+            }
+          }
+        }
+      }
     }
   });
 
@@ -190,19 +301,60 @@ export async function completeSprintForUser(userId, sprintId) {
     throw error;
   }
 
-  return prisma.sprint.update({
-    where: {
-      id: sprintId
-    },
-    data: {
-      status: 'completed'
-    },
-    include: {
-      tasks: {
-        select: {
-          id: true
+  const backlogColumn =
+    sprint.project.columns.find((column) => column.name.toLowerCase() === 'backlog') ||
+    sprint.project.columns[0] ||
+    null;
+
+  if (!backlogColumn) {
+    const error = new Error('The project must have at least one column before closing a sprint');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const incompleteTasks = sprint.project.columns.flatMap((column) =>
+    column.tasks
+      .filter((task) => task.sprintId === sprintId && column.name.toLowerCase() !== 'done')
+      .map((task) => ({
+        ...task,
+        sourceColumnName: column.name
+      }))
+  );
+
+  const backlogPositionStart = backlogColumn.tasks.filter((task) => !task.sprintId).length;
+
+  await prisma.$transaction([
+    ...incompleteTasks.map((task, index) =>
+      prisma.task.update({
+        where: {
+          id: task.id
+        },
+        data: {
+          sprintId: null,
+          columnId: backlogColumn.id,
+          position:
+            task.columnId === backlogColumn.id ? task.position : backlogPositionStart + index,
+          carryOverSprintId: sprint.id,
+          carryOverSprintName: sprint.name,
+          carryOverColumnName: task.sourceColumnName
         }
+      })
+    ),
+    prisma.sprint.update({
+      where: {
+        id: sprintId
+      },
+      data: {
+        status: 'completed',
+        completedAt: new Date()
       }
-    }
+    })
+  ]);
+
+  return prisma.project.findUnique({
+    where: {
+      id: sprint.projectId
+    },
+    include: projectDetailInclude
   });
 }
