@@ -134,11 +134,11 @@ function DashboardWorkspace({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete "${selectedProject.name}"? This will remove its columns and tasks.`
+    const confirmation = window.prompt(
+      `Type "${selectedProject.name}" to delete this project, including its columns, tasks, and sprints.`
     );
 
-    if (!confirmed) {
+    if (confirmation !== selectedProject.name) {
       return;
     }
 

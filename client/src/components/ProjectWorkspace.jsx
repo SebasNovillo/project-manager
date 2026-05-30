@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
@@ -49,10 +49,12 @@ function ProjectWorkspace({
   isCreatingTask,
   isUpdatingProject,
   isUpdatingTask,
+  isDeletingTask,
   isDeletingProject,
   isCreatingSprint,
   isCompletingSprint
 }) {
+  const navigate = useNavigate();
   const [editingProjectId, setEditingProjectId] = useState('');
   const [editingProjectValues, setEditingProjectValues] = useState({
     name: '',
@@ -202,15 +204,16 @@ function ProjectWorkspace({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete "${selectedProject.name}"? This will remove its columns, tasks, and sprints.`
+    const confirmation = window.prompt(
+      `Type "${selectedProject.name}" to delete this project, including its columns, tasks, and sprints.`
     );
 
-    if (!confirmed) {
+    if (confirmation !== selectedProject.name) {
       return;
     }
 
     await onDeleteProject(selectedProject.id);
+    navigate('/');
   };
 
   const handleSprintChange = (event) => {
