@@ -52,6 +52,49 @@ function formatPointAverage(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
+function getCapacityInsight(plannedPoints, averageVelocity, scopeLabel) {
+  if (!averageVelocity) {
+    return {
+      tone: 'neutral',
+      title: 'Capacity guidance needs history',
+      description: `Complete at least one sprint to compare this ${scopeLabel} against your average velocity.`
+    };
+  }
+
+  if (!plannedPoints) {
+    return {
+      tone: 'neutral',
+      title: 'No estimated work yet',
+      description: `Add story points to this ${scopeLabel} to compare it with your ${formatPointAverage(averageVelocity)} point average velocity.`
+    };
+  }
+
+  const ratio = plannedPoints / averageVelocity;
+  const averageLabel = formatPointAverage(averageVelocity);
+
+  if (ratio <= 0.9) {
+    return {
+      tone: 'good',
+      title: 'Comfortably within capacity',
+      description: `This ${scopeLabel} has ${plannedPoints} pts against an average velocity of ${averageLabel} pts.`
+    };
+  }
+
+  if (ratio <= 1.15) {
+    return {
+      tone: 'warning',
+      title: 'Close to average capacity',
+      description: `This ${scopeLabel} is near the team average of ${averageLabel} pts. Keep scope changes small.`
+    };
+  }
+
+  return {
+    tone: 'risk',
+    title: 'Above average capacity',
+    description: `This ${scopeLabel} has ${plannedPoints} pts, which is above the ${averageLabel} pt average velocity. Consider trimming scope.`
+  };
+}
+
 function ProjectWorkspace({
   selectedProject,
   isLoading,
@@ -276,6 +319,14 @@ function ProjectWorkspace({
       averageVelocity: totalVelocity / velocities.length
     };
   }, [completedSprints, historyVelocityBySprintId]);
+  const sprintCapacityInsight = useMemo(
+    () => getCapacityInsight(sprintPointCount, velocitySummary.averageVelocity, 'sprint'),
+    [sprintPointCount, velocitySummary.averageVelocity]
+  );
+  const backlogCapacityInsight = useMemo(
+    () => getCapacityInsight(backlogPointCount, velocitySummary.averageVelocity, 'backlog'),
+    [backlogPointCount, velocitySummary.averageVelocity]
+  );
 
   const backlogColumn = useMemo(() => {
     if (!selectedProject) {
@@ -646,6 +697,13 @@ function ProjectWorkspace({
           </div>
 
           {activeSprint ? (
+            <div className={`capacity-insight capacity-insight--${sprintCapacityInsight.tone}`}>
+              <strong>{sprintCapacityInsight.title}</strong>
+              <span>{sprintCapacityInsight.description}</span>
+            </div>
+          ) : null}
+
+          {activeSprint ? (
             <div className="summary-action-row summary-action-row--split">
               <Link
                 to={`/projects/${selectedProject.id}/sprints/${activeSprint.id}/board`}
@@ -729,6 +787,11 @@ function ProjectWorkspace({
               <strong>{backlogPointCount}</strong>
               <span>Backlog points</span>
             </article>
+          </div>
+
+          <div className={`capacity-insight capacity-insight--${backlogCapacityInsight.tone}`}>
+            <strong>{backlogCapacityInsight.title}</strong>
+            <span>{backlogCapacityInsight.description}</span>
           </div>
 
           <div className="summary-action-row summary-action-row--split project-backlog-toolbar">
