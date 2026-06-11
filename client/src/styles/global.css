@@ -749,6 +749,10 @@ textarea {
   background: rgba(255, 255, 255, 0.56);
 }
 
+.sprint-history-metrics {
+  margin-top: 0.2rem;
+}
+
 .sprint-history-list {
   grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
   align-items: stretch;
@@ -796,6 +800,11 @@ textarea {
   color: #35507a;
   font-size: 0.84rem;
   font-weight: 700;
+}
+
+.history-sprint-item__pill--velocity {
+  background: rgba(34, 197, 94, 0.12);
+  color: #166534;
 }
 
 .history-sprint-item__actions {

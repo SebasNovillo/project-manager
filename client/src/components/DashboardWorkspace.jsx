@@ -6,6 +6,14 @@ function getStoryPoints(task) {
   return Number(task?.storyPoints) || 0;
 }
 
+function formatPointAverage(value) {
+  if (!value) {
+    return '0';
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
 function DashboardWorkspace({
   projects,
   selectedProject,
@@ -108,6 +116,41 @@ function DashboardWorkspace({
           .reduce((taskPoints, task) => taskPoints + getStoryPoints(task), 0),
       0
     );
+  }, [selectedProject]);
+
+  const velocitySummary = useMemo(() => {
+    if (!selectedProject) {
+      return {
+        averageVelocity: 0
+      };
+    }
+
+    const completedSprints = (selectedProject.sprints || []).filter(
+      (sprint) => sprint.status !== 'active'
+    );
+
+    if (!completedSprints.length) {
+      return {
+        averageVelocity: 0
+      };
+    }
+
+    const doneColumn = selectedProject.columns.find(
+      (column) => column.name.toLowerCase() === 'done'
+    );
+    const doneTasks = doneColumn?.tasks || [];
+    const totalVelocity = completedSprints.reduce(
+      (points, sprint) =>
+        points +
+        doneTasks
+          .filter((task) => task.sprintId === sprint.id)
+          .reduce((taskPoints, task) => taskPoints + getStoryPoints(task), 0),
+      0
+    );
+
+    return {
+      averageVelocity: totalVelocity / completedSprints.length
+    };
   }, [selectedProject]);
 
   const handleChange = (event) => {
@@ -226,6 +269,10 @@ function DashboardWorkspace({
             <article className="summary-metric-card">
               <strong>{selectedProjectSummary.totalPoints}</strong>
               <span>Total points</span>
+            </article>
+            <article className="summary-metric-card">
+              <strong>{formatPointAverage(velocitySummary.averageVelocity)}</strong>
+              <span>Avg velocity</span>
             </article>
           </div>
 

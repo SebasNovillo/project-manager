@@ -44,6 +44,14 @@ function getStoryPoints(task) {
   return Number(task?.storyPoints) || 0;
 }
 
+function formatPointAverage(value) {
+  if (!value) {
+    return '0';
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
 function ProjectWorkspace({
   selectedProject,
   isLoading,
@@ -229,6 +237,45 @@ function ProjectWorkspace({
         return lookup;
       }, {});
   }, [projectColumns, selectedProject]);
+  const historyVelocityBySprintId = useMemo(() => {
+    if (!selectedProject) {
+      return {};
+    }
+
+    const doneColumn = projectColumns.find(
+      (column) => column.name.toLowerCase() === 'done'
+    );
+
+    if (!doneColumn) {
+      return {};
+    }
+
+    return doneColumn.tasks.reduce((lookup, task) => {
+      if (task.sprintId) {
+        lookup[task.sprintId] = (lookup[task.sprintId] || 0) + getStoryPoints(task);
+      }
+
+      return lookup;
+    }, {});
+  }, [projectColumns, selectedProject]);
+  const velocitySummary = useMemo(() => {
+    if (!completedSprints.length) {
+      return {
+        lastVelocity: 0,
+        averageVelocity: 0
+      };
+    }
+
+    const velocities = completedSprints.map(
+      (sprint) => historyVelocityBySprintId[sprint.id] || 0
+    );
+    const totalVelocity = velocities.reduce((sum, points) => sum + points, 0);
+
+    return {
+      lastVelocity: velocities[0] || 0,
+      averageVelocity: totalVelocity / velocities.length
+    };
+  }, [completedSprints, historyVelocityBySprintId]);
 
   const backlogColumn = useMemo(() => {
     if (!selectedProject) {
@@ -950,6 +997,23 @@ function ProjectWorkspace({
           </div>
 
           {completedSprints.length ? (
+            <div className="summary-metric-grid summary-metric-grid--compact sprint-history-metrics">
+              <article className="summary-metric-card">
+                <strong>{completedSprints.length}</strong>
+                <span>Completed sprints</span>
+              </article>
+              <article className="summary-metric-card">
+                <strong>{velocitySummary.lastVelocity}</strong>
+                <span>Last velocity</span>
+              </article>
+              <article className="summary-metric-card">
+                <strong>{formatPointAverage(velocitySummary.averageVelocity)}</strong>
+                <span>Average velocity</span>
+              </article>
+            </div>
+          ) : null}
+
+          {completedSprints.length ? (
             <div className="project-list sprint-history-list">
               {completedSprints.map((sprint) => (
                 <article key={sprint.id} className="history-sprint-item">
@@ -962,6 +1026,9 @@ function ProjectWorkspace({
                       </span>
                       <span className="history-sprint-item__pill">
                         {historyPointCountBySprintId[sprint.id] || 0} pts
+                      </span>
+                      <span className="history-sprint-item__pill history-sprint-item__pill--velocity">
+                        {historyVelocityBySprintId[sprint.id] || 0} done pts
                       </span>
                       <span className="status-copy">Ended {getSprintCompletedDateLabel(sprint)}</span>
                     </div>
