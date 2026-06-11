@@ -29,8 +29,20 @@ function normalizeLabels(value) {
     .filter(Boolean);
 }
 
+function getStoryPoints(task) {
+  return Number(task?.storyPoints) || 0;
+}
+
 function getColumnTone(name) {
   return name.toLowerCase().replace(/\s+/g, '-');
+}
+
+function getBoardColumnLabel(name, sprint) {
+  if (sprint?.status === 'active' && name.toLowerCase() === 'backlog') {
+    return 'Sprint Backlog';
+  }
+
+  return name;
 }
 
 function getColumnDroppableId(columnId) {
@@ -169,6 +181,7 @@ function BoardWorkspace({
     title: '',
     description: '',
     priority: 'medium',
+    storyPoints: '0',
     labels: '',
     dueDate: ''
   });
@@ -208,7 +221,10 @@ function BoardWorkspace({
       return {
         totalTasks: 0,
         inFlow: 0,
-        done: 0
+        done: 0,
+        totalPoints: 0,
+        inFlowPoints: 0,
+        donePoints: 0
       };
     }
 
@@ -224,11 +240,18 @@ function BoardWorkspace({
     const done = scopedTasks.filter(
       (task) => task.boardColumnName?.toLowerCase() === 'done'
     ).length;
+    const totalPoints = scopedTasks.reduce((points, task) => points + getStoryPoints(task), 0);
+    const donePoints = scopedTasks
+      .filter((task) => task.boardColumnName?.toLowerCase() === 'done')
+      .reduce((points, task) => points + getStoryPoints(task), 0);
 
     return {
       totalTasks,
       inFlow: Math.max(totalTasks - done, 0),
-      done
+      done,
+      totalPoints,
+      inFlowPoints: Math.max(totalPoints - donePoints, 0),
+      donePoints
     };
   }, [selectedProject, sprintId]);
   const selectedSprint = useMemo(
@@ -236,6 +259,17 @@ function BoardWorkspace({
     [selectedProject, sprintId]
   );
   const isReadonlySprintBoard = Boolean(selectedSprint && selectedSprint.status !== 'active');
+  const backlogColumn = useMemo(() => {
+    if (!selectedProject) {
+      return null;
+    }
+
+    return (
+      selectedProject.columns.find((column) => column.name.toLowerCase() === 'backlog') ||
+      selectedProject.columns[0] ||
+      null
+    );
+  }, [selectedProject]);
   const sprintTaskCount = useMemo(() => {
     if (!selectedProject || !selectedSprint) {
       return 0;
@@ -365,6 +399,7 @@ function BoardWorkspace({
         title: currentForms[columnId]?.title || '',
         description: currentForms[columnId]?.description || '',
         priority: currentForms[columnId]?.priority || 'medium',
+        storyPoints: currentForms[columnId]?.storyPoints || '0',
         labels: currentForms[columnId]?.labels || '',
         dueDate: currentForms[columnId]?.dueDate || '',
         [field]: value
@@ -383,6 +418,7 @@ function BoardWorkspace({
       title: '',
       description: '',
       priority: 'medium',
+      storyPoints: '0',
       labels: '',
       dueDate: ''
     };
@@ -397,6 +433,7 @@ function BoardWorkspace({
         title: values.title.trim(),
         description: values.description,
         priority: values.priority,
+        storyPoints: values.storyPoints,
         labels: normalizeLabels(values.labels),
         dueDate: values.dueDate,
         sprintId: selectedSprint?.status === 'active' ? selectedSprint.id : null,
@@ -411,6 +448,7 @@ function BoardWorkspace({
           title: '',
           description: '',
           priority: 'medium',
+          storyPoints: '0',
           labels: '',
           dueDate: ''
         }
@@ -447,6 +485,7 @@ function BoardWorkspace({
       title: task.title,
       description: task.description || '',
       priority: task.priority || 'medium',
+      storyPoints: String(task.storyPoints ?? 0),
       labels: (task.labels || []).join(', '),
       dueDate: task.dueDate ? String(task.dueDate).slice(0, 10) : ''
     });
@@ -459,6 +498,7 @@ function BoardWorkspace({
       title: '',
       description: '',
       priority: 'medium',
+      storyPoints: '0',
       labels: '',
       dueDate: ''
     });
@@ -526,15 +566,21 @@ function BoardWorkspace({
       return;
     }
 
-    const nextSprintId = task.sprintId === selectedSprint.id ? null : selectedSprint.id;
+    const isRemovingFromSprint = task.sprintId === selectedSprint.id;
+    const nextSprintId = isRemovingFromSprint ? null : selectedSprint.id;
+    const updates = {
+      sprintId: nextSprintId
+    };
+
+    if (isRemovingFromSprint && backlogColumn) {
+      updates.columnId = backlogColumn.id;
+    }
 
     try {
-      await onUpdateTask(selectedProject.id, task.id, {
-        sprintId: nextSprintId
-      });
+      await onUpdateTask(selectedProject.id, task.id, updates);
       setTaskFormError('');
       setTaskFormSuccess(
-        nextSprintId ? 'Task added to the sprint.' : 'Task moved back to the backlog.'
+        nextSprintId ? 'Task added to the sprint.' : 'Task removed from the sprint.'
       );
     } catch (requestError) {
       setTaskFormError(requestError.message || 'Could not update sprint assignment');
@@ -690,7 +736,9 @@ function BoardWorkspace({
                     {isReadonlySprintBoard ? 'Sprint history' : 'Active sprint'}
                   </span>
                   <strong>{selectedSprint.name}</strong>
-                  <span>{sprintTaskCount} tasks included</span>
+                  <span>
+                    {sprintTaskCount} tasks included - {boardStats.totalPoints} pts
+                  </span>
                 </div>
               ) : null}
             </div>
@@ -699,15 +747,15 @@ function BoardWorkspace({
               <div className="board-stat-grid">
                 <div className="board-stat-chip">
                   <strong>{boardStats.totalTasks}</strong>
-                  <span>Total cards</span>
+                  <span>Total cards - {boardStats.totalPoints} pts</span>
                 </div>
                 <div className="board-stat-chip">
                   <strong>{boardStats.inFlow}</strong>
-                  <span>In flow</span>
+                  <span>In flow - {boardStats.inFlowPoints} pts</span>
                 </div>
                 <div className="board-stat-chip">
                   <strong>{boardStats.done}</strong>
-                  <span>Done</span>
+                  <span>Done - {boardStats.donePoints} pts</span>
                 </div>
               </div>
             ) : null}
@@ -748,7 +796,7 @@ function BoardWorkspace({
                     }`}
                     onClick={() => setMobileColumnId(column.id)}
                   >
-                    <span>{column.name}</span>
+                    <span>{getBoardColumnLabel(column.name, selectedSprint)}</span>
                     <strong>{column.tasks.length}</strong>
                   </button>
                 ))}
@@ -765,7 +813,7 @@ function BoardWorkspace({
                   {(isOver) => (
                     <>
                       <header className="board-column-header">
-                        <h3>{column.name}</h3>
+                        <h3>{getBoardColumnLabel(column.name, selectedSprint)}</h3>
                         <span>{column.tasks.length} cards</span>
                       </header>
 
@@ -829,6 +877,19 @@ function BoardWorkspace({
                                               </option>
                                             ))}
                                           </select>
+                                        </label>
+
+                                        <label>
+                                          <span>Story points</span>
+                                          <input
+                                            type="number"
+                                            name="storyPoints"
+                                            min="0"
+                                            max="100"
+                                            step="1"
+                                            value={editingValues.storyPoints}
+                                            onChange={handleEditingValueChange}
+                                          />
                                         </label>
 
                                         <label>
@@ -904,6 +965,9 @@ function BoardWorkspace({
                                         <span className="due-date-badge">
                                           {formatDueDate(task.dueDate)}
                                         </span>
+                                        <span className="due-date-badge">
+                                          {getStoryPoints(task)} pts
+                                        </span>
                                       </div>
                                       <p>{task.description || 'No description yet.'}</p>
                                       {task.isCarriedOverFromHistory ? (
@@ -948,7 +1012,7 @@ function BoardWorkspace({
                                           disabled={isUpdatingTask || isDeletingTask}
                                           onClick={() => handleToggleSprintTask(task)}
                                         >
-                                          Move back to backlog
+                                          Remove from sprint
                                         </button>
                                       </div>
                                     ) : null}
@@ -969,7 +1033,7 @@ function BoardWorkspace({
                                         >
                                           {moveTargetsByColumnId[column.id].map((targetColumn) => (
                                             <option key={targetColumn.id} value={targetColumn.id}>
-                                              {targetColumn.name}
+                                              {getBoardColumnLabel(targetColumn.name, selectedSprint)}
                                             </option>
                                           ))}
                                         </select>
@@ -1013,7 +1077,10 @@ function BoardWorkspace({
                             <input
                               type="text"
                               name={`task-title-${column.id}`}
-                              placeholder={`Add a task to ${column.name}`}
+                              placeholder={`Add a task to ${getBoardColumnLabel(
+                                column.name,
+                                selectedSprint
+                              )}`}
                               value={taskForms[column.id]?.title || ''}
                               onChange={(event) =>
                                 handleTaskChange(column.id, 'title', event.target.value)
@@ -1035,14 +1102,15 @@ function BoardWorkspace({
                           </label>
 
                           <p className="task-form-note">
-                            This task will be created directly in <strong>{column.name}</strong>.
+                            This task will be created directly in{' '}
+                            <strong>{getBoardColumnLabel(column.name, selectedSprint)}</strong>.
                           </p>
 
                           <div className="task-meta-grid">
-                            <label>
-                              <span>Priority</span>
-                              <select
-                                name={`task-priority-${column.id}`}
+                              <label>
+                                <span>Priority</span>
+                                <select
+                                  name={`task-priority-${column.id}`}
                                 value={taskForms[column.id]?.priority || 'medium'}
                                 onChange={(event) =>
                                   handleTaskChange(column.id, 'priority', event.target.value)
@@ -1052,13 +1120,28 @@ function BoardWorkspace({
                                   <option key={option} value={option}>
                                     {option}
                                   </option>
-                                ))}
-                              </select>
-                            </label>
+                                  ))}
+                                </select>
+                              </label>
 
-                            <label>
-                              <span>Due date</span>
-                              <input
+                              <label>
+                                <span>Story points</span>
+                                <input
+                                  type="number"
+                                  name={`task-story-points-${column.id}`}
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  value={taskForms[column.id]?.storyPoints || '0'}
+                                  onChange={(event) =>
+                                    handleTaskChange(column.id, 'storyPoints', event.target.value)
+                                  }
+                                />
+                              </label>
+
+                              <label>
+                                <span>Due date</span>
+                                <input
                                 type="date"
                                 name={`task-due-date-${column.id}`}
                                 value={taskForms[column.id]?.dueDate || ''}
@@ -1120,6 +1203,9 @@ function BoardWorkspace({
                       </span>
                       <span className="due-date-badge">
                         {formatDueDate(activeDragTask.dueDate)}
+                      </span>
+                      <span className="due-date-badge">
+                        {getStoryPoints(activeDragTask)} pts
                       </span>
                     </div>
                     <p>{activeDragTask.description || 'No description yet.'}</p>

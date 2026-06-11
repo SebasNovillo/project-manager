@@ -49,6 +49,7 @@ model Task {
   priority    String   @default("medium")
   labels      String[]
   dueDate     DateTime?
+  storyPoints Int      @default(0)
   position    Int      @default(0)
   columnId    String
   sprintId    String?

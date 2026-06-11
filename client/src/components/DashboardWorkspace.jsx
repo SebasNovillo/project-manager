@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ActionDialog from './ActionDialog';
 
+function getStoryPoints(task) {
+  return Number(task?.storyPoints) || 0;
+}
+
 function DashboardWorkspace({
   projects,
   selectedProject,
@@ -29,20 +33,25 @@ function DashboardWorkspace({
   const selectedProjectSummary = useMemo(() => {
     if (!selectedProject) {
       return {
-        lanes: 0,
         totalCards: 0,
-        completedCards: 0
+        totalPoints: 0
       };
     }
 
     return {
-      lanes: selectedProject.columns.length,
       totalCards: selectedProject.columns.reduce(
         (count, column) => count + column.tasks.length,
         0
       ),
-      completedCards:
-        selectedProject.columns.find((column) => column.name === 'Done')?.tasks.length || 0
+      totalPoints: selectedProject.columns.reduce(
+        (points, column) =>
+          points +
+          column.tasks.reduce(
+            (columnPoints, task) => columnPoints + getStoryPoints(task),
+            0
+          ),
+        0
+      )
     };
   }, [selectedProject]);
 
@@ -69,6 +78,34 @@ function DashboardWorkspace({
 
     return selectedProject.columns.reduce(
       (count, column) => count + column.tasks.filter((task) => !task.sprintId).length,
+      0
+    );
+  }, [selectedProject]);
+  const sprintPointCount = useMemo(() => {
+    if (!selectedProject || !activeSprint) {
+      return 0;
+    }
+
+    return selectedProject.columns.reduce(
+      (points, column) =>
+        points +
+        column.tasks
+          .filter((task) => task.sprintId === activeSprint.id)
+          .reduce((taskPoints, task) => taskPoints + getStoryPoints(task), 0),
+      0
+    );
+  }, [activeSprint, selectedProject]);
+  const backlogPointCount = useMemo(() => {
+    if (!selectedProject) {
+      return 0;
+    }
+
+    return selectedProject.columns.reduce(
+      (points, column) =>
+        points +
+        column.tasks
+          .filter((task) => !task.sprintId)
+          .reduce((taskPoints, task) => taskPoints + getStoryPoints(task), 0),
       0
     );
   }, [selectedProject]);
@@ -171,20 +208,24 @@ function DashboardWorkspace({
               <span>Sprint tasks</span>
             </article>
             <article className="summary-metric-card">
+              <strong>{activeSprint ? sprintPointCount : 0}</strong>
+              <span>Sprint points</span>
+            </article>
+            <article className="summary-metric-card">
               <strong>{backlogTaskCount}</strong>
               <span>Backlog tasks</span>
+            </article>
+            <article className="summary-metric-card">
+              <strong>{backlogPointCount}</strong>
+              <span>Backlog points</span>
             </article>
             <article className="summary-metric-card">
               <strong>{selectedProjectSummary.totalCards}</strong>
               <span>Total tasks</span>
             </article>
             <article className="summary-metric-card">
-              <strong>{selectedProjectSummary.completedCards}</strong>
-              <span>Done</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{selectedProjectSummary.lanes}</strong>
-              <span>Lanes</span>
+              <strong>{selectedProjectSummary.totalPoints}</strong>
+              <span>Total points</span>
             </article>
           </div>
 

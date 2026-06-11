@@ -69,6 +69,26 @@ function parsePosition(value) {
   return parsedPosition;
 }
 
+function parseStoryPoints(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return 0;
+  }
+
+  const parsedPoints = Number(value);
+
+  if (!Number.isInteger(parsedPoints) || parsedPoints < 0 || parsedPoints > 100) {
+    const error = new Error('Story points must be a whole number from 0 to 100');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return parsedPoints;
+}
+
 async function ensureProjectOwnership(userId, projectId) {
   const project = await prisma.project.findFirst({
     where: {
@@ -276,6 +296,7 @@ export async function createTaskForProject(userId, projectId, payload) {
   const priority = parsePriority(payload.priority) || 'medium';
   const labels = parseLabels(payload.labels) || [];
   const dueDate = parseDueDate(payload.dueDate) ?? null;
+  const storyPoints = parseStoryPoints(payload.storyPoints) ?? 0;
   const sprintId =
     payload.sprintId === undefined || payload.sprintId === null || payload.sprintId === ''
       ? null
@@ -321,6 +342,7 @@ export async function createTaskForProject(userId, projectId, payload) {
       priority,
       labels,
       dueDate,
+      storyPoints,
       columnId,
       sprintId,
       position
@@ -337,6 +359,7 @@ export async function updateTaskForUser(userId, taskId, payload) {
   const nextPriority = parsePriority(payload.priority);
   const nextLabels = parseLabels(payload.labels);
   const nextDueDate = parseDueDate(payload.dueDate);
+  const nextStoryPoints = parseStoryPoints(payload.storyPoints);
   const nextPosition = parsePosition(payload.position);
   const nextSprintId =
     payload.sprintId === undefined
@@ -373,6 +396,10 @@ export async function updateTaskForUser(userId, taskId, payload) {
     data.dueDate = nextDueDate;
   }
 
+  if (nextStoryPoints !== undefined) {
+    data.storyPoints = nextStoryPoints;
+  }
+
   if (nextSprintId !== undefined) {
     if (nextSprintId === null) {
       data.sprintId = null;
@@ -386,6 +413,9 @@ export async function updateTaskForUser(userId, taskId, payload) {
       }
 
       data.sprintId = nextSprintId;
+      data.carryOverSprintId = null;
+      data.carryOverSprintName = null;
+      data.carryOverColumnName = null;
     }
   }
 

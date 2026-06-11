@@ -7,14 +7,16 @@ const starterTasksByColumn = {
       description: 'List the main goals, users, and constraints for this project.',
       priority: 'high',
       labels: ['discovery', 'planning'],
-      dueDate: '2026-05-20'
+      dueDate: '2026-05-20',
+      storyPoints: 3
     },
     {
       title: 'Map the first release',
       description: 'Decide which features belong in the MVP and which can wait.',
       priority: 'medium',
       labels: ['roadmap'],
-      dueDate: '2026-05-23'
+      dueDate: '2026-05-23',
+      storyPoints: 5
     }
   ],
   'To Do': [
@@ -23,7 +25,8 @@ const starterTasksByColumn = {
       description: 'Draft the main dashboard and board layout before polishing details.',
       priority: 'medium',
       labels: ['design', 'ui'],
-      dueDate: '2026-05-24'
+      dueDate: '2026-05-24',
+      storyPoints: 3
     }
   ],
   'In Progress': [
@@ -32,7 +35,8 @@ const starterTasksByColumn = {
       description: 'Prepare the structure, auth flow, and first board experience.',
       priority: 'high',
       labels: ['backend', 'frontend'],
-      dueDate: '2026-05-18'
+      dueDate: '2026-05-18',
+      storyPoints: 8
     }
   ],
   Review: [
@@ -41,7 +45,8 @@ const starterTasksByColumn = {
       description: 'Check if tasks move clearly from backlog to done.',
       priority: 'low',
       labels: ['qa'],
-      dueDate: '2026-05-25'
+      dueDate: '2026-05-25',
+      storyPoints: 2
     }
   ],
   Done: [
@@ -50,7 +55,8 @@ const starterTasksByColumn = {
       description: 'Your first project is ready to start receiving real work.',
       priority: 'low',
       labels: ['onboarding'],
-      dueDate: '2026-05-14'
+      dueDate: '2026-05-14',
+      storyPoints: 1
     }
   ]
 };

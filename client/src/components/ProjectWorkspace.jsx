@@ -40,6 +40,10 @@ function normalizeLabels(value) {
     .filter(Boolean);
 }
 
+function getStoryPoints(task) {
+  return Number(task?.storyPoints) || 0;
+}
+
 function ProjectWorkspace({
   selectedProject,
   isLoading,
@@ -74,6 +78,7 @@ function ProjectWorkspace({
     title: '',
     description: '',
     priority: 'medium',
+    storyPoints: '0',
     labels: '',
     dueDate: ''
   });
@@ -83,6 +88,7 @@ function ProjectWorkspace({
     title: '',
     description: '',
     priority: 'medium',
+    storyPoints: '0',
     labels: '',
     dueDate: ''
   });
@@ -131,6 +137,35 @@ function ProjectWorkspace({
 
     return doneColumn?.tasks.filter((task) => task.sprintId === activeSprint.id).length || 0;
   }, [activeSprint, projectColumns, selectedProject]);
+  const sprintPointCount = useMemo(() => {
+    if (!selectedProject || !activeSprint) {
+      return 0;
+    }
+
+    return projectColumns.reduce(
+      (count, column) =>
+        count +
+        column.tasks
+          .filter((task) => task.sprintId === activeSprint.id)
+          .reduce((points, task) => points + getStoryPoints(task), 0),
+      0
+    );
+  }, [activeSprint, projectColumns, selectedProject]);
+  const sprintDonePointCount = useMemo(() => {
+    if (!selectedProject || !activeSprint) {
+      return 0;
+    }
+
+    const doneColumn = projectColumns.find(
+      (column) => column.name.toLowerCase() === 'done'
+    );
+
+    return (
+      doneColumn?.tasks
+        .filter((task) => task.sprintId === activeSprint.id)
+        .reduce((points, task) => points + getStoryPoints(task), 0) || 0
+    );
+  }, [activeSprint, projectColumns, selectedProject]);
   const incompleteSprintTaskCount = Math.max(sprintTaskCount - sprintDoneCount, 0);
 
   const backlogTasks = useMemo(() => {
@@ -149,6 +184,10 @@ function ProjectWorkspace({
   }, [projectColumns, selectedProject]);
 
   const backlogTaskCount = backlogTasks.length;
+  const backlogPointCount = backlogTasks.reduce(
+    (points, task) => points + getStoryPoints(task),
+    0
+  );
   const carryOverBacklogTaskCount = backlogTasks.filter((task) => task.carryOverSprintId).length;
   const historyTaskCountBySprintId = useMemo(() => {
     if (!selectedProject) {
@@ -164,6 +203,27 @@ function ProjectWorkspace({
 
         if (task.carryOverSprintId) {
           lookup[task.carryOverSprintId] = (lookup[task.carryOverSprintId] || 0) + 1;
+        }
+
+        return lookup;
+      }, {});
+  }, [projectColumns, selectedProject]);
+  const historyPointCountBySprintId = useMemo(() => {
+    if (!selectedProject) {
+      return {};
+    }
+
+    return projectColumns
+      .flatMap((column) => column.tasks)
+      .reduce((lookup, task) => {
+        const points = getStoryPoints(task);
+
+        if (task.sprintId) {
+          lookup[task.sprintId] = (lookup[task.sprintId] || 0) + points;
+        }
+
+        if (task.carryOverSprintId) {
+          lookup[task.carryOverSprintId] = (lookup[task.carryOverSprintId] || 0) + points;
         }
 
         return lookup;
@@ -299,6 +359,7 @@ function ProjectWorkspace({
       title: backlogTaskValues.title.trim(),
       description: backlogTaskValues.description,
       priority: backlogTaskValues.priority,
+      storyPoints: backlogTaskValues.storyPoints,
       labels: normalizeLabels(backlogTaskValues.labels),
       dueDate: backlogTaskValues.dueDate,
       sprintId: null,
@@ -308,6 +369,7 @@ function ProjectWorkspace({
       title: '',
       description: '',
       priority: 'medium',
+      storyPoints: '0',
       labels: '',
       dueDate: ''
     });
@@ -347,6 +409,7 @@ function ProjectWorkspace({
       title: task.title,
       description: task.description || '',
       priority: task.priority || 'medium',
+      storyPoints: String(task.storyPoints ?? 0),
       labels: (task.labels || []).join(', '),
       dueDate: formatDateInput(task.dueDate)
     });
@@ -358,6 +421,7 @@ function ProjectWorkspace({
       title: '',
       description: '',
       priority: 'medium',
+      storyPoints: '0',
       labels: '',
       dueDate: ''
     });
@@ -374,6 +438,7 @@ function ProjectWorkspace({
       title: editingBacklogTaskValues.title.trim(),
       description: editingBacklogTaskValues.description,
       priority: editingBacklogTaskValues.priority,
+      storyPoints: editingBacklogTaskValues.storyPoints,
       labels: normalizeLabels(editingBacklogTaskValues.labels),
       dueDate: editingBacklogTaskValues.dueDate || null
     });
@@ -516,8 +581,16 @@ function ProjectWorkspace({
               <span>Sprint tasks</span>
             </article>
             <article className="summary-metric-card">
+              <strong>{sprintPointCount}</strong>
+              <span>Sprint points</span>
+            </article>
+            <article className="summary-metric-card">
               <strong>{sprintDoneCount}</strong>
               <span>Sprint done</span>
+            </article>
+            <article className="summary-metric-card">
+              <strong>{sprintDonePointCount}</strong>
+              <span>Done points</span>
             </article>
             <article className="summary-metric-card">
               <strong>{activeSprint ? formatDate(activeSprint.endDate) : 'None'}</strong>
@@ -605,6 +678,10 @@ function ProjectWorkspace({
               <strong>{backlogTaskCount}</strong>
               <span>Backlog tasks</span>
             </article>
+            <article className="summary-metric-card">
+              <strong>{backlogPointCount}</strong>
+              <span>Backlog points</span>
+            </article>
           </div>
 
           <div className="summary-action-row summary-action-row--split project-backlog-toolbar">
@@ -664,6 +741,19 @@ function ProjectWorkspace({
                       </option>
                     ))}
                   </select>
+                </label>
+
+                <label>
+                  <span>Story points</span>
+                  <input
+                    type="number"
+                    name="storyPoints"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={backlogTaskValues.storyPoints}
+                    onChange={handleBacklogTaskChange}
+                  />
                 </label>
 
                 <label>
@@ -740,6 +830,19 @@ function ProjectWorkspace({
                         </label>
 
                         <label>
+                          <span>Story points</span>
+                          <input
+                            type="number"
+                            name="storyPoints"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={editingBacklogTaskValues.storyPoints}
+                            onChange={handleEditingBacklogTaskChange}
+                          />
+                        </label>
+
+                        <label>
                           <span>Due date</span>
                           <input
                             type="date"
@@ -779,17 +882,18 @@ function ProjectWorkspace({
                       <div className="project-backlog-item__copy">
                         <strong>{task.title}</strong>
                         <p>{[task.columnName, task.description].filter(Boolean).join(' - ')}</p>
-                        {task.carryOverSprintName || task.carryOverColumnName ? (
-                          <div className="project-backlog-item__meta">
+                        <div className="project-backlog-item__meta">
+                          <span className="project-backlog-pill">{getStoryPoints(task)} pts</span>
+                          {task.carryOverSprintName || task.carryOverColumnName ? (
                             <span className="project-backlog-pill">Carry over</span>
-                            {task.carryOverSprintName ? (
-                              <span className="status-copy">From {task.carryOverSprintName}</span>
-                            ) : null}
-                            {task.carryOverColumnName ? (
-                              <span className="status-copy">Left in {task.carryOverColumnName}</span>
-                            ) : null}
-                          </div>
-                        ) : null}
+                          ) : null}
+                          {task.carryOverSprintName ? (
+                            <span className="status-copy">From {task.carryOverSprintName}</span>
+                          ) : null}
+                          {task.carryOverColumnName ? (
+                            <span className="status-copy">Left in {task.carryOverColumnName}</span>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="project-backlog-item__actions">
@@ -855,6 +959,9 @@ function ProjectWorkspace({
                     <div className="history-sprint-item__meta">
                       <span className="history-sprint-item__pill">
                         {historyTaskCountBySprintId[sprint.id] || 0} tasks
+                      </span>
+                      <span className="history-sprint-item__pill">
+                        {historyPointCountBySprintId[sprint.id] || 0} pts
                       </span>
                       <span className="status-copy">Ended {getSprintCompletedDateLabel(sprint)}</span>
                     </div>
