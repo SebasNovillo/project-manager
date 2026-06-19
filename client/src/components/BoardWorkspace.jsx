@@ -1,9 +1,28 @@
-import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
+const inputClassName =
+  'mt-2 w-full rounded-2xl border border-stroke-1 bg-white px-4 py-3 text-sm text-ink-950 outline-none transition placeholder:text-slate-400 focus:border-brand-300 focus:ring-4 focus:ring-brand-100';
+const labelClassName = 'grid gap-1.5 text-sm font-medium text-slate-600';
+const primaryButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#4f46e5_0%,#3525cd_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-soft-card transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60';
+const secondaryButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-stroke-1 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60';
+const dangerButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60';
+const panelClassName =
+  'rounded-[28px] border border-stroke-1 bg-white/92 p-5 shadow-soft-card backdrop-blur sm:p-6';
 
 function formatDueDate(value) {
   if (!value) {
@@ -48,10 +67,6 @@ function getStoryPoints(task) {
   return Number(task?.storyPoints) || 0;
 }
 
-function getColumnTone(name) {
-  return name.toLowerCase().replace(/\s+/g, '-');
-}
-
 function getBoardColumnLabel(name, sprint) {
   if (sprint?.status === 'active' && name.toLowerCase() === 'backlog') {
     return 'Sprint Backlog';
@@ -91,11 +106,107 @@ function getSprintBoardColumnName(task, sprint, currentColumnName) {
   return currentColumnName;
 }
 
-function DroppableColumn({
-  column,
-  isActive,
-  children
-}) {
+function getColumnTheme(name) {
+  const tone = name.toLowerCase();
+
+  if (tone === 'backlog') {
+    return {
+      shell: 'border-slate-200 bg-white/88',
+      body: 'bg-white/72'
+    };
+  }
+
+  if (tone === 'to do' || tone === 'todo') {
+    return {
+      shell: 'border-sky-200 bg-sky-50/70',
+      body: 'bg-white/80'
+    };
+  }
+
+  if (tone === 'in progress') {
+    return {
+      shell: 'border-brand-200 bg-brand-50/70',
+      body: 'bg-white/82'
+    };
+  }
+
+  if (tone === 'review') {
+    return {
+      shell: 'border-amber-200 bg-amber-50/70',
+      body: 'bg-white/82'
+    };
+  }
+
+  if (tone === 'done') {
+    return {
+      shell: 'border-emerald-200 bg-emerald-50/70',
+      body: 'bg-white/82'
+    };
+  }
+
+  return {
+    shell: 'border-stroke-1 bg-surface-100/80',
+    body: 'bg-white/80'
+  };
+}
+
+function getPriorityBadgeClass(priority) {
+  const tone = (priority || 'medium').toLowerCase();
+
+  if (tone === 'urgent') {
+    return 'bg-red-50 text-red-700';
+  }
+
+  if (tone === 'high') {
+    return 'bg-amber-50 text-amber-700';
+  }
+
+  if (tone === 'low') {
+    return 'bg-slate-100 text-slate-600';
+  }
+
+  return 'bg-brand-50 text-brand-700';
+}
+
+function StatCard({ label, value }) {
+  return (
+    <article className="rounded-[22px] border border-stroke-1 bg-white/88 p-4 shadow-soft-card">
+      <strong className="block text-3xl font-semibold tracking-[-0.05em] text-ink-950">
+        {value}
+      </strong>
+      <span className="mt-2 block text-sm font-medium text-slate-500">{label}</span>
+    </article>
+  );
+}
+
+function EmptyPanel({ eyebrow, title, description }) {
+  return (
+    <article className={`${panelClassName} grid min-h-56 place-items-center text-center`}>
+      <div className="max-w-lg space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-600">
+          {eyebrow}
+        </p>
+        <h2 className="text-3xl font-semibold tracking-[-0.05em] text-ink-950">{title}</h2>
+        <p className="text-base leading-7 text-slate-500">{description}</p>
+      </div>
+    </article>
+  );
+}
+
+function FeedbackMessage({ message, tone }) {
+  const toneClassName =
+    tone === 'error'
+      ? 'border-red-200 bg-red-50 text-red-600'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+
+  return (
+    <p className={`rounded-2xl border px-4 py-3 text-sm font-medium ${toneClassName}`}>
+      {message}
+    </p>
+  );
+}
+
+function DroppableColumn({ column, isActive, children }) {
   const { setNodeRef, isOver } = useDroppable({
     id: getColumnDroppableId(column.id),
     data: {
@@ -103,15 +214,20 @@ function DroppableColumn({
       type: 'column'
     }
   });
+  const theme = getColumnTheme(column.name);
 
   return (
     <section
       ref={setNodeRef}
-      className={`board-column ${isActive ? 'board-column--active' : ''} ${
-        isOver ? 'board-column--over' : ''
-      } board-column--${getColumnTone(column.name)}`}
+      className={`rounded-[28px] border p-4 shadow-soft-card transition ${theme.shell} ${
+        isOver
+          ? 'border-brand-300 ring-4 ring-brand-100'
+          : isActive
+            ? 'border-brand-200 ring-2 ring-brand-100'
+            : ''
+      }`}
     >
-      {children(isOver)}
+      {children({ isOver, theme })}
     </section>
   );
 }
@@ -125,7 +241,13 @@ function TaskCard({
   children
 }) {
   const draggableId = getTaskDraggableId(task.id);
-  const { attributes, listeners, setNodeRef: setDraggableNodeRef, transform, isDragging: isDraggingCard } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDraggableNodeRef,
+    transform,
+    isDragging: isDraggingCard
+  } = useDraggable({
     id: draggableId,
     data: {
       taskId: task.id,
@@ -158,17 +280,20 @@ function TaskCard({
     <article
       ref={setNodeRef}
       style={style}
-      className={`task-card ${
-        isDragging || isDraggingCard ? 'task-card--dragging' : ''
-      } ${isOver && !isDragging ? 'task-card--over' : ''}`}
+      className={`rounded-[24px] border border-stroke-1 bg-white p-4 shadow-soft-card transition ${
+        isDragging || isDraggingCard
+          ? 'rotate-[1deg] scale-[1.01] border-brand-300 shadow-soft-panel'
+          : ''
+      } ${isOver && !isDragging ? 'border-brand-300 ring-4 ring-brand-100' : ''}`}
     >
       {children({
-        dragHandleProps: isEditing || !isDragEnabled
-          ? {}
-          : {
-              ...attributes,
-              ...listeners
-            }
+        dragHandleProps:
+          isEditing || !isDragEnabled
+            ? {}
+            : {
+                ...attributes,
+                ...listeners
+              }
       })}
     </article>
   );
@@ -229,6 +354,7 @@ function BoardWorkspace({
       .flatMap((column) => column.tasks)
       .find((task) => task.id === activeDragTaskId) || null;
   }, [activeDragTaskId, selectedProject]);
+
   const boardStats = useMemo(() => {
     const routeSprint = selectedProject?.sprints?.find((sprint) => sprint.id === sprintId) || null;
 
@@ -269,13 +395,16 @@ function BoardWorkspace({
       donePoints
     };
   }, [selectedProject, sprintId]);
+
   const selectedSprint = useMemo(
     () => selectedProject?.sprints?.find((sprint) => sprint.id === sprintId) || null,
     [selectedProject, sprintId]
   );
+
   const isReadonlySprintBoard = Boolean(selectedSprint && selectedSprint.status !== 'active');
   const boardPhaseLabel = isReadonlySprintBoard ? 'Sprint history' : 'Active sprint';
   const boardDateRange = selectedSprint ? formatSprintDateRange(selectedSprint) : 'Choose a sprint';
+
   const backlogColumn = useMemo(() => {
     if (!selectedProject) {
       return null;
@@ -287,6 +416,7 @@ function BoardWorkspace({
       null
     );
   }, [selectedProject]);
+
   const sprintTaskCount = useMemo(() => {
     if (!selectedProject || !selectedSprint) {
       return 0;
@@ -299,6 +429,7 @@ function BoardWorkspace({
       );
     }, 0);
   }, [selectedProject, selectedSprint]);
+
   const scopedColumns = useMemo(() => {
     if (!selectedProject || !selectedSprint) {
       return [];
@@ -334,6 +465,7 @@ function BoardWorkspace({
 
     return scopedColumns.filter((column) => column.id === mobileColumnId);
   }, [isMobileBoard, mobileColumnId, scopedColumns, selectedProject]);
+
   const moveTargetsByColumnId = useMemo(() => {
     if (!selectedProject) {
       return {};
@@ -713,549 +845,579 @@ function BoardWorkspace({
     handleDragEnd();
   };
 
+  if (isLoading) {
+    return (
+      <EmptyPanel
+        eyebrow="Board"
+        title="Loading sprint board"
+        description="We are bringing in the latest sprint lanes and cards for this project."
+      />
+    );
+  }
+
+  if (!selectedSprint) {
+    return (
+      <EmptyPanel
+        eyebrow="Board"
+        title="No sprint selected"
+        description="Open a project sprint before managing tasks in the board."
+      />
+    );
+  }
+
   return (
-    <section className="dashboard-stack">
-      <section className="board-shell">
-        <article className="card board-project-bar">
-          <div className="board-project-bar__content">
-            <div className="board-project-bar__copy">
-              <p className="eyebrow">{boardPhaseLabel}</p>
-              {selectedProject ? (
-                <p className="board-project-kicker">{selectedProject.name}</p>
-              ) : null}
-              <h1>{selectedSprint ? selectedSprint.name : 'Choose a sprint'}</h1>
-              <p>
-                {selectedSprint
-                  ? selectedSprint.goal ||
-                    'Manage the tasks committed to this sprint and move them across the board.'
-                  : 'Open a project sprint before managing the board.'}
+    <section className="space-y-6">
+      <article
+        className={`${panelClassName} overflow-hidden bg-[linear-gradient(135deg,rgba(239,244,255,0.96),rgba(255,255,255,0.98))]`}
+      >
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-600">
+                {boardPhaseLabel}
               </p>
-              {selectedSprint ? (
-                <div className="board-hero-meta">
-                  <span className="board-hero-pill">{boardDateRange}</span>
-                  <span className="board-hero-pill board-hero-pill--strong">
-                    {sprintTaskCount} tasks
-                  </span>
-                  <span className="board-hero-pill">{boardStats.totalPoints} pts planned</span>
-                </div>
+              {selectedProject ? (
+                <p className="text-sm font-medium text-slate-500">{selectedProject.name}</p>
               ) : null}
-              {selectedSprint ? (
-                <p className="board-instruction">
-                  {isReadonlySprintBoard
-                    ? 'This sprint is archived. Review the state of the board without editing cards.'
-                    : isMobileBoard
-                      ? 'Use the column tabs and move controls to update work from mobile.'
-                      : 'Drag cards across the board to reflect the team’s progress in real time.'}
-                </p>
-              ) : null}
+              <h1 className="text-4xl font-semibold tracking-[-0.06em] text-ink-950 sm:text-5xl">
+                {selectedSprint.name}
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-slate-600">
+                {selectedSprint.goal ||
+                  'Manage the tasks committed to this sprint and move them across the board.'}
+              </p>
             </div>
 
-            {selectedProject ? (
-              <div className="board-project-bar__aside">
-                <div className="board-hero-actions">
-                  <Link
-                    to={`/projects/${selectedProject.id}`}
-                    className="ghost-button ghost-button--panel board-project-link"
-                  >
-                    Back to project
-                  </Link>
-                  <span className={`board-status-chip ${isReadonlySprintBoard ? 'board-status-chip--muted' : ''}`}>
-                    {isReadonlySprintBoard ? 'Closed sprint' : 'Live board'}
-                  </span>
-                </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-soft-card">
+                {boardDateRange}
+              </span>
+              <span className="rounded-full bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 shadow-soft-card">
+                {sprintTaskCount} tasks
+              </span>
+              <span className="rounded-full bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-soft-card">
+                {boardStats.totalPoints} pts planned
+              </span>
+            </div>
 
-                <div className="board-stat-grid">
-                <div className="board-stat-chip">
-                  <strong>{boardStats.totalTasks}</strong>
-                  <span>Total cards</span>
-                </div>
-                <div className="board-stat-chip">
-                  <strong>{boardStats.inFlow}</strong>
-                  <span>In flow</span>
-                </div>
-                <div className="board-stat-chip">
-                  <strong>{boardStats.done}</strong>
-                  <span>Done</span>
-                </div>
-                <div className="board-stat-chip">
-                  <strong>{boardStats.donePoints}</strong>
-                  <span>Done points</span>
-                </div>
-              </div>
-              </div>
-            ) : null}
+            <p className="text-sm leading-6 text-slate-500">
+              {isReadonlySprintBoard
+                ? 'This sprint is archived. Review the state of the board without editing cards.'
+                : isMobileBoard
+                  ? 'Use the column tabs and move controls to update work from mobile.'
+                  : "Drag cards across the board to reflect the team's progress in real time."}
+            </p>
           </div>
 
-          {isLoading ? <p className="status-copy">Loading projects...</p> : null}
-          {error ? <p className="form-error">{error}</p> : null}
-          {taskFormError || taskFormSuccess ? (
-            <div className="board-feedback" aria-live="polite">
-              {taskFormError ? (
-                <p className="board-feedback__item board-feedback__item--error">{taskFormError}</p>
-              ) : null}
-              {taskFormSuccess ? (
-                <p className="board-feedback__item board-feedback__item--success">
-                  {taskFormSuccess}
-                </p>
-              ) : null}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Link
+                to={`/projects/${selectedProject.id}`}
+                className={secondaryButtonClassName}
+              >
+                Back to project
+              </Link>
+              <span
+                className={`rounded-full px-3 py-2 text-sm font-semibold ${
+                  isReadonlySprintBoard
+                    ? 'bg-slate-100 text-slate-500'
+                    : 'bg-emerald-50 text-emerald-700'
+                }`}
+              >
+                {isReadonlySprintBoard ? 'Closed sprint' : 'Live board'}
+              </span>
             </div>
-          ) : null}
-        </article>
 
-        {selectedSprint ? (
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDropTask}
-            onDragCancel={handleDragEnd}
-          >
-            {isMobileBoard ? (
-              <div className="board-mobile-switcher" role="tablist" aria-label="Board columns">
-                {scopedColumns.map((column) => (
-                  <button
-                    key={column.id}
-                    type="button"
-                    className={`board-mobile-switcher__chip ${
-                      column.id === mobileColumnId ? 'board-mobile-switcher__chip--active' : ''
+            <div className="grid gap-3 sm:grid-cols-2">
+              <StatCard label="Total cards" value={boardStats.totalTasks} />
+              <StatCard label="In flow" value={boardStats.inFlow} />
+              <StatCard label="Done" value={boardStats.done} />
+              <StatCard label="Done points" value={boardStats.donePoints} />
+            </div>
+          </div>
+        </div>
+
+        {(error || taskFormError || taskFormSuccess) ? (
+          <div className="mt-5 grid gap-3" aria-live="polite">
+            {error ? <FeedbackMessage message={error} tone="error" /> : null}
+            {taskFormError ? <FeedbackMessage message={taskFormError} tone="error" /> : null}
+            {taskFormSuccess ? <FeedbackMessage message={taskFormSuccess} tone="success" /> : null}
+          </div>
+        ) : null}
+      </article>
+
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDropTask}
+        onDragCancel={handleDragEnd}
+      >
+        {isMobileBoard ? (
+          <div className="flex gap-3 overflow-x-auto pb-1" role="tablist" aria-label="Board columns">
+            {scopedColumns.map((column) => (
+              <button
+                key={column.id}
+                type="button"
+                className={`inline-flex min-h-12 items-center gap-3 rounded-2xl border px-4 py-3 text-left shadow-soft-card transition ${
+                  column.id === mobileColumnId
+                    ? 'border-brand-200 bg-brand-50 text-brand-700'
+                    : 'border-stroke-1 bg-white text-slate-600'
+                }`}
+                onClick={() => setMobileColumnId(column.id)}
+              >
+                <span className="whitespace-nowrap text-sm font-semibold">
+                  {getBoardColumnLabel(column.name, selectedSprint)}
+                </span>
+                <strong className="rounded-full bg-white/90 px-2 py-1 text-xs font-semibold">
+                  {column.tasks.length}
+                </strong>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className={`grid gap-4 ${isMobileBoard ? 'grid-cols-1' : 'xl:grid-cols-4 md:grid-cols-2'}`}>
+          {visibleColumns.map((column) => (
+            <DroppableColumn
+              key={column.id}
+              column={column}
+              isActive={overColumnId === column.id}
+            >
+              {({ isOver, theme }) => (
+                <div className="space-y-4">
+                  <header className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold tracking-[-0.03em] text-ink-950">
+                        {getBoardColumnLabel(column.name, selectedSprint)}
+                      </h2>
+                      <p className="mt-1 text-sm leading-6 text-slate-500">
+                        {column.tasks.length} cards
+                      </p>
+                    </div>
+                    <strong className="rounded-full bg-white/92 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                      {column.tasks.reduce((total, task) => total + getStoryPoints(task), 0)} pts
+                    </strong>
+                  </header>
+
+                  <div
+                    className={`grid gap-3 rounded-[24px] p-2 transition ${theme.body} ${
+                      isOver ? 'ring-4 ring-brand-100' : ''
                     }`}
-                    onClick={() => setMobileColumnId(column.id)}
                   >
-                    <span>{getBoardColumnLabel(column.name, selectedSprint)}</span>
-                    <strong>{column.tasks.length}</strong>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+                    {column.tasks.length === 0 ? (
+                      <p className="rounded-[20px] border border-dashed border-stroke-2 bg-white/70 px-4 py-8 text-center text-sm leading-6 text-slate-500">
+                        {activeDragTaskId ? 'Drop a task here' : 'No tasks in this stage yet.'}
+                      </p>
+                    ) : (
+                      column.tasks.map((task) => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          columnId={column.id}
+                          isEditing={editingTaskId === task.id}
+                          isDragging={activeDragTaskId === task.id}
+                          isDragEnabled={!isMobileBoard && !isReadonlySprintBoard}
+                        >
+                          {({ dragHandleProps }) => {
+                            if (editingTaskId === task.id) {
+                              return (
+                                <form
+                                  className="grid gap-4"
+                                  onSubmit={(event) => handleUpdateTask(event, task.id)}
+                                >
+                                  <label className={labelClassName}>
+                                    <span>Task title</span>
+                                    <input
+                                      type="text"
+                                      name="title"
+                                      value={editingValues.title}
+                                      onChange={handleEditingValueChange}
+                                      className={inputClassName}
+                                    />
+                                  </label>
 
-            <div className="board-preview board-preview--full">
-              {visibleColumns.map((column) => (
-                <DroppableColumn
-                  key={column.id}
-                  column={column}
-                  isActive={overColumnId === column.id}
-                >
-                  {(isOver) => (
-                    <>
-                      <header className="board-column-header">
-                        <div>
-                          <h3>{getBoardColumnLabel(column.name, selectedSprint)}</h3>
-                          <span>{column.tasks.length} cards</span>
-                        </div>
-                        <strong>{column.tasks.reduce((total, task) => total + getStoryPoints(task), 0)} pts</strong>
-                      </header>
+                                  <label className={labelClassName}>
+                                    <span>Description</span>
+                                    <textarea
+                                      name="description"
+                                      rows="4"
+                                      value={editingValues.description}
+                                      onChange={handleEditingValueChange}
+                                      className={`${inputClassName} min-h-28 resize-y`}
+                                    />
+                                  </label>
 
-                      <div
-                        className={`board-column-body board-column-body--stack ${
-                          isOver ? 'board-column-body--over' : ''
-                        }`}
-                      >
-                        {column.tasks.length === 0 ? (
-                          <p className="drop-hint">
-                            {activeDragTaskId ? 'Drop a task here' : 'No tasks in this stage yet.'}
-                          </p>
-                        ) : (
-                          column.tasks.map((task) => (
-                            <TaskCard
-                              key={task.id}
-                              task={task}
-                              columnId={column.id}
-                              isEditing={editingTaskId === task.id}
-                              isDragging={activeDragTaskId === task.id}
-                              isDragEnabled={!isMobileBoard && !isReadonlySprintBoard}
-                            >
-                              {({ dragHandleProps }) => {
-                                if (editingTaskId === task.id) {
-                                  return (
-                                    <form
-                                      className="form-grid task-edit-form"
-                                      onSubmit={(event) => handleUpdateTask(event, task.id)}
+                                  <div className="grid gap-4 md:grid-cols-3">
+                                    <label className={labelClassName}>
+                                      <span>Priority</span>
+                                      <select
+                                        name="priority"
+                                        value={editingValues.priority}
+                                        onChange={handleEditingValueChange}
+                                        className={inputClassName}
+                                      >
+                                        {priorityOptions.map((option) => (
+                                          <option key={option} value={option}>
+                                            {option}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+
+                                    <label className={labelClassName}>
+                                      <span>Story points</span>
+                                      <input
+                                        type="number"
+                                        name="storyPoints"
+                                        min="0"
+                                        max="100"
+                                        step="1"
+                                        value={editingValues.storyPoints}
+                                        onChange={handleEditingValueChange}
+                                        className={inputClassName}
+                                      />
+                                    </label>
+
+                                    <label className={labelClassName}>
+                                      <span>Due date</span>
+                                      <input
+                                        type="date"
+                                        name="dueDate"
+                                        value={editingValues.dueDate}
+                                        onChange={handleEditingValueChange}
+                                        className={inputClassName}
+                                      />
+                                    </label>
+                                  </div>
+
+                                  <label className={labelClassName}>
+                                    <span>Labels</span>
+                                    <input
+                                      type="text"
+                                      name="labels"
+                                      placeholder="design, frontend"
+                                      value={editingValues.labels}
+                                      onChange={handleEditingValueChange}
+                                      className={inputClassName}
+                                    />
+                                  </label>
+
+                                  <div className="flex flex-wrap gap-3">
+                                    <button
+                                      type="submit"
+                                      className={primaryButtonClassName}
+                                      disabled={isUpdatingTask}
                                     >
-                                      <label>
-                                        <span>Task title</span>
-                                        <input
-                                          type="text"
-                                          name="title"
-                                          value={editingValues.title}
-                                          onChange={handleEditingValueChange}
-                                        />
-                                      </label>
+                                      {isUpdatingTask ? 'Saving...' : 'Save'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={secondaryButtonClassName}
+                                      onClick={cancelEditingTask}
+                                      disabled={isUpdatingTask}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </form>
+                              );
+                            }
 
-                                      <label>
-                                        <span>Description</span>
-                                        <textarea
-                                          name="description"
-                                          rows="3"
-                                          value={editingValues.description}
-                                          onChange={handleEditingValueChange}
-                                        />
-                                      </label>
+                            return (
+                              <div className="space-y-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="space-y-2">
+                                    <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                      TK-{task.id.slice(0, 4).toUpperCase()}
+                                    </span>
+                                    <h3 className="text-lg font-semibold tracking-[-0.03em] text-ink-950">
+                                      {task.title}
+                                    </h3>
+                                  </div>
 
-                                      <div className="task-meta-grid">
-                                        <label>
-                                          <span>Priority</span>
-                                          <select
-                                            name="priority"
-                                            value={editingValues.priority}
-                                            onChange={handleEditingValueChange}
-                                          >
-                                            {priorityOptions.map((option) => (
-                                              <option key={option} value={option}>
-                                                {option}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        </label>
+                                  {!isMobileBoard ? (
+                                    <button
+                                      type="button"
+                                      className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-stroke-1 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 transition hover:border-brand-200 hover:text-brand-700"
+                                      aria-label={`Drag task ${task.title}`}
+                                      {...dragHandleProps}
+                                    >
+                                      <span aria-hidden="true">::</span>
+                                      Move
+                                    </button>
+                                  ) : null}
+                                </div>
 
-                                        <label>
-                                          <span>Story points</span>
-                                          <input
-                                            type="number"
-                                            name="storyPoints"
-                                            min="0"
-                                            max="100"
-                                            step="1"
-                                            value={editingValues.storyPoints}
-                                            onChange={handleEditingValueChange}
-                                          />
-                                        </label>
+                                <div className="flex flex-wrap gap-2">
+                                  {task.labels?.[0] ? (
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                                      {task.labels[0]}
+                                    </span>
+                                  ) : null}
+                                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${getPriorityBadgeClass(task.priority)}`}>
+                                    {task.priority || 'medium'}
+                                  </span>
+                                  <span className="rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                                    {formatDueDate(task.dueDate)}
+                                  </span>
+                                  <span className="rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                                    {getStoryPoints(task)} pts
+                                  </span>
+                                </div>
 
-                                        <label>
-                                          <span>Due date</span>
-                                          <input
-                                            type="date"
-                                            name="dueDate"
-                                            value={editingValues.dueDate}
-                                            onChange={handleEditingValueChange}
-                                          />
-                                        </label>
-                                      </div>
+                                <p className="text-sm leading-6 text-slate-500">
+                                  {task.description || 'No description yet.'}
+                                </p>
 
-                                      <label>
-                                        <span>Labels</span>
-                                        <input
-                                          type="text"
-                                          name="labels"
-                                          placeholder="design, frontend"
-                                          value={editingValues.labels}
-                                          onChange={handleEditingValueChange}
-                                        />
-                                      </label>
+                                {task.isCarriedOverFromHistory ? (
+                                  <p className="rounded-[18px] border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-700">
+                                    Carried over after sprint close from {task.carryOverColumnName || 'this stage'}.
+                                  </p>
+                                ) : null}
 
-                                      <div className="task-actions">
-                                        <button
-                                          type="submit"
-                                          className="primary-button"
-                                          disabled={isUpdatingTask}
-                                        >
-                                          {isUpdatingTask ? 'Saving...' : 'Save'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="ghost-button ghost-button--action"
-                                          onClick={cancelEditingTask}
-                                          disabled={isUpdatingTask}
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    </form>
-                                  );
-                                }
+                                {task.labels?.length ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {task.labels.map((label) => (
+                                      <span
+                                        key={label}
+                                        className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700"
+                                      >
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : null}
 
-                                return (
-                                  <>
-                                    <div className="task-card-copy">
-                                      <div className="task-card-top">
-                                        <div className="task-card-title-block">
-                                          <span className="task-card-id">TK-{task.id.slice(0, 4).toUpperCase()}</span>
-                                          <h4>{task.title}</h4>
-                                        </div>
-                                        {!isMobileBoard ? (
-                                          <button
-                                            type="button"
-                                            className="task-grip"
-                                            aria-label={`Drag task ${task.title}`}
-                                            {...dragHandleProps}
-                                          >
-                                            <span className="task-grip__dots" aria-hidden="true">
-                                              ::
-                                            </span>
-                                            Move
-                                          </button>
-                                        ) : null}
-                                      </div>
-                                      <div className="task-meta-row">
-                                        {task.labels?.[0] ? (
-                                          <span className="task-sprint-chip">{task.labels[0]}</span>
-                                        ) : null}
-                                        <span
-                                          className={`priority-badge priority-badge--${
-                                            task.priority || 'medium'
-                                          }`}
-                                        >
-                                          {task.priority || 'medium'}
-                                        </span>
-                                        <span className="due-date-badge">
-                                          {formatDueDate(task.dueDate)}
-                                        </span>
-                                        <span className="due-date-badge">
-                                          {getStoryPoints(task)} pts
-                                        </span>
-                                      </div>
-                                      <p>{task.description || 'No description yet.'}</p>
-                                      {task.isCarriedOverFromHistory ? (
-                                        <p className="task-history-note">
-                                          Carried over after sprint close from {task.carryOverColumnName || 'this stage'}.
-                                        </p>
-                                      ) : null}
-                                      {task.labels?.length ? (
-                                        <div className="label-row">
-                                          {task.labels.map((label) => (
-                                            <span key={label} className="label-chip">
-                                              {label}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : null}
-                                    </div>
+                                {!isReadonlySprintBoard ? (
+                                  <div className="flex flex-wrap gap-3">
+                                    <button
+                                      type="button"
+                                      className={secondaryButtonClassName}
+                                      disabled={isUpdatingTask || isDeletingTask}
+                                      onClick={() => startEditingTask(task)}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={dangerButtonClassName}
+                                      disabled={isUpdatingTask || isDeletingTask}
+                                      onClick={() => handleDeleteTask(task.id)}
+                                    >
+                                      {isDeletingTask ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={secondaryButtonClassName}
+                                      disabled={isUpdatingTask || isDeletingTask}
+                                      onClick={() => handleToggleSprintTask(task)}
+                                    >
+                                      Return to backlog
+                                    </button>
+                                  </div>
+                                ) : null}
 
-                                    {!isReadonlySprintBoard ? (
-                                      <div className="task-card-footer">
-                                        <div className="task-actions">
-                                          <button
-                                            type="button"
-                                            className="ghost-button ghost-button--action"
-                                            disabled={isUpdatingTask || isDeletingTask}
-                                            onClick={() => startEditingTask(task)}
-                                          >
-                                            Edit
-                                          </button>
-                                          <button
-                                            type="button"
-                                            className="ghost-button ghost-button--action ghost-button--danger-solid"
-                                            disabled={isUpdatingTask || isDeletingTask}
-                                            onClick={() => handleDeleteTask(task.id)}
-                                          >
-                                            {isDeletingTask ? 'Deleting...' : 'Delete'}
-                                          </button>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          className="ghost-button task-secondary-action"
-                                          disabled={isUpdatingTask || isDeletingTask}
-                                          onClick={() => handleToggleSprintTask(task)}
-                                        >
-                                          Return to backlog
-                                        </button>
-                                      </div>
-                                    ) : null}
+                                {isMobileBoard &&
+                                !isReadonlySprintBoard &&
+                                moveTargetsByColumnId[column.id]?.length ? (
+                                  <div className="grid gap-3 rounded-[20px] border border-stroke-1 bg-surface-100/70 p-3">
+                                    <select
+                                      aria-label={`Move ${task.title} to another column`}
+                                      value={
+                                        mobileMoveTargetByTask[task.id] ||
+                                        moveTargetsByColumnId[column.id][0]?.id ||
+                                        ''
+                                      }
+                                      onChange={(event) =>
+                                        handleMobileMoveTargetChange(task.id, event.target.value)
+                                      }
+                                      disabled={isUpdatingTask}
+                                      className="w-full rounded-2xl border border-stroke-1 bg-white px-4 py-3 text-sm text-ink-950 outline-none"
+                                    >
+                                      {moveTargetsByColumnId[column.id].map((targetColumn) => (
+                                        <option key={targetColumn.id} value={targetColumn.id}>
+                                          {getBoardColumnLabel(targetColumn.name, selectedSprint)}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      className={secondaryButtonClassName}
+                                      disabled={isUpdatingTask}
+                                      onClick={() => handleMobileMove(task.id, column.id)}
+                                    >
+                                      Move to
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          }}
+                        </TaskCard>
+                      ))
+                    )}
+                  </div>
 
-                                    {!isReadonlySprintBoard && moveTargetsByColumnId[column.id]?.length ? (
-                                      <div className="task-mobile-move">
-                                        <select
-                                          aria-label={`Move ${task.title} to another column`}
-                                          value={
-                                            mobileMoveTargetByTask[task.id] ||
-                                            moveTargetsByColumnId[column.id][0]?.id ||
-                                            ''
-                                          }
-                                          onChange={(event) =>
-                                            handleMobileMoveTargetChange(task.id, event.target.value)
-                                          }
-                                          disabled={isUpdatingTask}
-                                        >
-                                          {moveTargetsByColumnId[column.id].map((targetColumn) => (
-                                            <option key={targetColumn.id} value={targetColumn.id}>
-                                              {getBoardColumnLabel(targetColumn.name, selectedSprint)}
-                                            </option>
-                                          ))}
-                                        </select>
-                                        <button
-                                          type="button"
-                                          className="ghost-button ghost-button--panel"
-                                          disabled={isUpdatingTask}
-                                          onClick={() => handleMobileMove(task.id, column.id)}
-                                        >
-                                          Move to
-                                        </button>
-                                      </div>
-                                    ) : null}
-                                  </>
-                                );
-                              }}
-                            </TaskCard>
-                          ))
-                        )}
+                  {!isReadonlySprintBoard ? (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        className={secondaryButtonClassName}
+                        onClick={() => toggleTaskComposer(column.id)}
+                      >
+                        {openTaskComposerByColumn[column.id] ? 'Cancel' : 'Add card'}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {!isReadonlySprintBoard && openTaskComposerByColumn[column.id] ? (
+                    <form
+                      className="grid gap-4 rounded-[24px] border border-stroke-1 bg-white/88 p-4"
+                      onSubmit={(event) => handleTaskSubmit(event, column.id)}
+                    >
+                      <label className={labelClassName}>
+                        <span>Task title</span>
+                        <input
+                          type="text"
+                          name={`task-title-${column.id}`}
+                          placeholder={`Add a task to ${getBoardColumnLabel(column.name, selectedSprint)}`}
+                          value={taskForms[column.id]?.title || ''}
+                          onChange={(event) =>
+                            handleTaskChange(column.id, 'title', event.target.value)
+                          }
+                          className={inputClassName}
+                        />
+                      </label>
+
+                      <label className={labelClassName}>
+                        <span>Description</span>
+                        <textarea
+                          name={`task-description-${column.id}`}
+                          placeholder="Optional details"
+                          value={taskForms[column.id]?.description || ''}
+                          onChange={(event) =>
+                            handleTaskChange(column.id, 'description', event.target.value)
+                          }
+                          rows="4"
+                          className={`${inputClassName} min-h-28 resize-y`}
+                        />
+                      </label>
+
+                      <p className="rounded-[20px] border border-brand-100 bg-brand-50/70 px-4 py-3 text-sm leading-6 text-brand-700">
+                        This task will be created directly in <strong>{getBoardColumnLabel(column.name, selectedSprint)}</strong>.
+                      </p>
+
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <label className={labelClassName}>
+                          <span>Priority</span>
+                          <select
+                            name={`task-priority-${column.id}`}
+                            value={taskForms[column.id]?.priority || 'medium'}
+                            onChange={(event) =>
+                              handleTaskChange(column.id, 'priority', event.target.value)
+                            }
+                            className={inputClassName}
+                          >
+                            {priorityOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className={labelClassName}>
+                          <span>Story points</span>
+                          <input
+                            type="number"
+                            name={`task-story-points-${column.id}`}
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={taskForms[column.id]?.storyPoints || '0'}
+                            onChange={(event) =>
+                              handleTaskChange(column.id, 'storyPoints', event.target.value)
+                            }
+                            className={inputClassName}
+                          />
+                        </label>
+
+                        <label className={labelClassName}>
+                          <span>Due date</span>
+                          <input
+                            type="date"
+                            name={`task-due-date-${column.id}`}
+                            value={taskForms[column.id]?.dueDate || ''}
+                            onChange={(event) =>
+                              handleTaskChange(column.id, 'dueDate', event.target.value)
+                            }
+                            className={inputClassName}
+                          />
+                        </label>
                       </div>
 
-                      {!isReadonlySprintBoard ? (
-                        <div className="column-footer">
-                          <button
-                            type="button"
-                            className="ghost-button ghost-button--panel"
-                            onClick={() => toggleTaskComposer(column.id)}
-                          >
-                            {openTaskComposerByColumn[column.id] ? 'Cancel' : 'Add card'}
-                          </button>
-                        </div>
-                      ) : null}
+                      <label className={labelClassName}>
+                        <span>Labels</span>
+                        <input
+                          type="text"
+                          name={`task-labels-${column.id}`}
+                          placeholder="design, frontend"
+                          value={taskForms[column.id]?.labels || ''}
+                          onChange={(event) =>
+                            handleTaskChange(column.id, 'labels', event.target.value)
+                          }
+                          className={inputClassName}
+                        />
+                      </label>
 
-                      {!isReadonlySprintBoard && openTaskComposerByColumn[column.id] ? (
-                        <form
-                          className="form-grid board-task-form"
-                          onSubmit={(event) => handleTaskSubmit(event, column.id)}
-                        >
-                          <label>
-                            <span>Task title</span>
-                            <input
-                              type="text"
-                              name={`task-title-${column.id}`}
-                              placeholder={`Add a task to ${getBoardColumnLabel(
-                                column.name,
-                                selectedSprint
-                              )}`}
-                              value={taskForms[column.id]?.title || ''}
-                              onChange={(event) =>
-                                handleTaskChange(column.id, 'title', event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <label>
-                            <span>Description</span>
-                            <textarea
-                              name={`task-description-${column.id}`}
-                              placeholder="Optional details"
-                              value={taskForms[column.id]?.description || ''}
-                              onChange={(event) =>
-                                handleTaskChange(column.id, 'description', event.target.value)
-                              }
-                              rows="3"
-                            />
-                          </label>
-
-                          <p className="task-form-note">
-                            This task will be created directly in{' '}
-                            <strong>{getBoardColumnLabel(column.name, selectedSprint)}</strong>.
-                          </p>
-
-                          <div className="task-meta-grid">
-                              <label>
-                                <span>Priority</span>
-                                <select
-                                  name={`task-priority-${column.id}`}
-                                value={taskForms[column.id]?.priority || 'medium'}
-                                onChange={(event) =>
-                                  handleTaskChange(column.id, 'priority', event.target.value)
-                                }
-                              >
-                                {priorityOptions.map((option) => (
-                                  <option key={option} value={option}>
-                                    {option}
-                                  </option>
-                                  ))}
-                                </select>
-                              </label>
-
-                              <label>
-                                <span>Story points</span>
-                                <input
-                                  type="number"
-                                  name={`task-story-points-${column.id}`}
-                                  min="0"
-                                  max="100"
-                                  step="1"
-                                  value={taskForms[column.id]?.storyPoints || '0'}
-                                  onChange={(event) =>
-                                    handleTaskChange(column.id, 'storyPoints', event.target.value)
-                                  }
-                                />
-                              </label>
-
-                              <label>
-                                <span>Due date</span>
-                                <input
-                                type="date"
-                                name={`task-due-date-${column.id}`}
-                                value={taskForms[column.id]?.dueDate || ''}
-                                onChange={(event) =>
-                                  handleTaskChange(column.id, 'dueDate', event.target.value)
-                                }
-                              />
-                            </label>
-                          </div>
-
-                          <label>
-                            <span>Labels</span>
-                            <input
-                              type="text"
-                              name={`task-labels-${column.id}`}
-                              placeholder="design, frontend"
-                              value={taskForms[column.id]?.labels || ''}
-                              onChange={(event) =>
-                                handleTaskChange(column.id, 'labels', event.target.value)
-                              }
-                            />
-                          </label>
-
-                          <button
-                            type="submit"
-                            className="primary-button"
-                            disabled={isCreatingTask}
-                          >
-                            {isCreatingTask ? 'Saving task...' : 'Add task'}
-                          </button>
-                        </form>
-                      ) : null}
-                    </>
-                  )}
-                </DroppableColumn>
-              ))}
-            </div>
-
-            <DragOverlay>
-              {activeDragTask ? (
-                <article className="task-card task-card--overlay">
-                  <div className="task-card-copy">
-                    <div className="task-card-top">
-                      <h4>{activeDragTask.title}</h4>
-                      <span className="task-grip task-grip--static">
-                        <span className="task-grip__dots" aria-hidden="true">
-                          ::
-                        </span>
-                        Move
-                      </span>
-                    </div>
-                    <div className="task-meta-row">
-                      <span
-                        className={`priority-badge priority-badge--${
-                          activeDragTask.priority || 'medium'
-                        }`}
+                      <button
+                        type="submit"
+                        className={primaryButtonClassName}
+                        disabled={isCreatingTask}
                       >
-                        {activeDragTask.priority || 'medium'}
-                      </span>
-                      <span className="due-date-badge">
-                        {formatDueDate(activeDragTask.dueDate)}
-                      </span>
-                      <span className="due-date-badge">
-                        {getStoryPoints(activeDragTask)} pts
-                      </span>
-                    </div>
-                    <p>{activeDragTask.description || 'No description yet.'}</p>
-                  </div>
-                </article>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        ) : (
-          <article className="card board-empty">
-            <p className="eyebrow">Board</p>
-            <h3>No sprint selected</h3>
-            <p>Open a project sprint before managing tasks in the board.</p>
-          </article>
-        )}
-      </section>
+                        {isCreatingTask ? 'Saving task...' : 'Add task'}
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
+              )}
+            </DroppableColumn>
+          ))}
+        </div>
+
+        <DragOverlay>
+          {activeDragTask ? (
+            <article className="w-[320px] rounded-[24px] border border-brand-300 bg-white p-4 shadow-soft-panel">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-lg font-semibold tracking-[-0.03em] text-ink-950">
+                    {activeDragTask.title}
+                  </h3>
+                  <span className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-stroke-1 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <span aria-hidden="true">::</span>
+                    Move
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${getPriorityBadgeClass(activeDragTask.priority)}`}>
+                    {activeDragTask.priority || 'medium'}
+                  </span>
+                  <span className="rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                    {formatDueDate(activeDragTask.dueDate)}
+                  </span>
+                  <span className="rounded-full bg-surface-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                    {getStoryPoints(activeDragTask)} pts
+                  </span>
+                </div>
+                <p className="text-sm leading-6 text-slate-500">
+                  {activeDragTask.description || 'No description yet.'}
+                </p>
+              </div>
+            </article>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </section>
   );
 }

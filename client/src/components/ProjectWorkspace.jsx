@@ -3,6 +3,17 @@ import { useMemo, useState } from 'react';
 import ActionDialog from './ActionDialog';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
+const panelClassName =
+  'rounded-[28px] border border-stroke-1 bg-white/92 p-5 shadow-soft-card backdrop-blur sm:p-6';
+const inputClassName =
+  'mt-2 w-full rounded-2xl border border-stroke-1 bg-white px-4 py-3 text-sm text-ink-950 outline-none transition placeholder:text-slate-400 focus:border-brand-300 focus:ring-4 focus:ring-brand-100';
+const labelClassName = 'grid gap-1.5 text-sm font-medium text-slate-600';
+const primaryButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#4f46e5_0%,#3525cd_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-soft-card transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60';
+const secondaryButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-stroke-1 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60';
+const dangerButtonClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60';
 
 function formatDate(value) {
   if (!value) {
@@ -93,6 +104,49 @@ function getCapacityInsight(plannedPoints, averageVelocity, scopeLabel) {
     title: 'Above average capacity',
     description: `This ${scopeLabel} has ${plannedPoints} pts, which is above the ${averageLabel} pt average velocity. Consider trimming scope.`
   };
+}
+
+function MetricCard({ label, value }) {
+  return (
+    <article className="rounded-[22px] border border-stroke-1 bg-white/88 p-4 shadow-soft-card">
+      <strong className="block text-3xl font-semibold tracking-[-0.05em] text-ink-950">
+        {value}
+      </strong>
+      <span className="mt-2 block text-sm font-medium text-slate-500">{label}</span>
+    </article>
+  );
+}
+
+function InsightBanner({ insight }) {
+  const toneClassName =
+    insight.tone === 'good'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : insight.tone === 'warning'
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : insight.tone === 'risk'
+          ? 'border-red-200 bg-red-50 text-red-700'
+          : 'border-stroke-1 bg-surface-100 text-slate-600';
+
+  return (
+    <div className={`rounded-[24px] border px-4 py-4 ${toneClassName}`}>
+      <strong className="block text-sm font-semibold">{insight.title}</strong>
+      <span className="mt-2 block text-sm leading-6">{insight.description}</span>
+    </div>
+  );
+}
+
+function EmptyPanel({ eyebrow, title, description }) {
+  return (
+    <article className={`${panelClassName} grid min-h-56 place-items-center text-center`}>
+      <div className="max-w-lg space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-600">
+          {eyebrow}
+        </p>
+        <h2 className="text-3xl font-semibold tracking-[-0.05em] text-ink-950">{title}</h2>
+        <p className="text-base leading-7 text-slate-500">{description}</p>
+      </div>
+    </article>
+  );
 }
 
 function ProjectWorkspace({
@@ -188,6 +242,7 @@ function ProjectWorkspace({
 
     return doneColumn?.tasks.filter((task) => task.sprintId === activeSprint.id).length || 0;
   }, [activeSprint, projectColumns, selectedProject]);
+
   const sprintPointCount = useMemo(() => {
     if (!selectedProject || !activeSprint) {
       return 0;
@@ -202,6 +257,7 @@ function ProjectWorkspace({
       0
     );
   }, [activeSprint, projectColumns, selectedProject]);
+
   const sprintDonePointCount = useMemo(() => {
     if (!selectedProject || !activeSprint) {
       return 0;
@@ -217,6 +273,7 @@ function ProjectWorkspace({
         .reduce((points, task) => points + getStoryPoints(task), 0) || 0
     );
   }, [activeSprint, projectColumns, selectedProject]);
+
   const incompleteSprintTaskCount = Math.max(sprintTaskCount - sprintDoneCount, 0);
 
   const backlogTasks = useMemo(() => {
@@ -240,6 +297,7 @@ function ProjectWorkspace({
     0
   );
   const carryOverBacklogTaskCount = backlogTasks.filter((task) => task.carryOverSprintId).length;
+
   const historyTaskCountBySprintId = useMemo(() => {
     if (!selectedProject) {
       return {};
@@ -259,6 +317,7 @@ function ProjectWorkspace({
         return lookup;
       }, {});
   }, [projectColumns, selectedProject]);
+
   const historyPointCountBySprintId = useMemo(() => {
     if (!selectedProject) {
       return {};
@@ -280,6 +339,7 @@ function ProjectWorkspace({
         return lookup;
       }, {});
   }, [projectColumns, selectedProject]);
+
   const historyVelocityBySprintId = useMemo(() => {
     if (!selectedProject) {
       return {};
@@ -301,6 +361,7 @@ function ProjectWorkspace({
       return lookup;
     }, {});
   }, [projectColumns, selectedProject]);
+
   const velocitySummary = useMemo(() => {
     if (!completedSprints.length) {
       return {
@@ -319,6 +380,7 @@ function ProjectWorkspace({
       averageVelocity: totalVelocity / velocities.length
     };
   }, [completedSprints, historyVelocityBySprintId]);
+
   const sprintCapacityInsight = useMemo(
     () => getCapacityInsight(sprintPointCount, velocitySummary.averageVelocity, 'sprint'),
     [sprintPointCount, velocitySummary.averageVelocity]
@@ -334,9 +396,7 @@ function ProjectWorkspace({
     }
 
     return (
-      projectColumns.find(
-        (column) => column.name.toLowerCase() === 'backlog'
-      ) ||
+      projectColumns.find((column) => column.name.toLowerCase() === 'backlog') ||
       projectColumns[0] ||
       null
     );
@@ -567,90 +627,108 @@ function ProjectWorkspace({
 
   if (isLoading) {
     return (
-      <article className="card board-empty">
-        <p className="status-copy">Loading project...</p>
-      </article>
+      <EmptyPanel
+        eyebrow="Project"
+        title="Loading project"
+        description="We are pulling the latest sprint, backlog, and history details for this workspace."
+      />
     );
   }
 
   if (!selectedProject) {
     return (
-      <article className="card board-empty">
-        <p className="eyebrow">Project</p>
-        <h3>No project selected</h3>
-        <p>Go back to the dashboard and choose a project before managing sprints or the board.</p>
-      </article>
+      <EmptyPanel
+        eyebrow="Project"
+        title="No project selected"
+        description="Go back to the dashboard and choose a project before managing sprints or the board."
+      />
     );
   }
 
   return (
-    <section className="dashboard-stack">
-      <article className="card project-view-hero">
-        <div className="section-copy">
-          <p className="eyebrow">Project overview</p>
-          <h1>{selectedProject.name}</h1>
-          <p>
-            {selectedProject.description ||
-              'Use this space to manage backlog planning and move ready work into sprint execution.'}
-          </p>
-        </div>
+    <section className="space-y-6">
+      <article
+        className={`${panelClassName} overflow-hidden bg-[linear-gradient(135deg,rgba(239,244,255,0.96),rgba(255,255,255,0.98))]`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl space-y-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-600">
+              Project overview
+            </p>
+            <h1 className="text-4xl font-semibold tracking-[-0.06em] text-ink-950 sm:text-5xl">
+              {selectedProject.name}
+            </h1>
+            <p className="text-base leading-7 text-slate-600">
+              {selectedProject.description ||
+                'Use this space to manage backlog planning and move ready work into sprint execution.'}
+            </p>
+          </div>
 
-        <div className="summary-action-row summary-action-row--split">
-          <button
-            type="button"
-            className="ghost-button ghost-button--action"
-            onClick={startEditingProject}
-            disabled={isUpdatingProject || isDeletingProject}
-          >
-            Edit project
-          </button>
-          <button
-            type="button"
-            className="ghost-button ghost-button--action ghost-button--danger-solid"
-            onClick={openDeleteProjectDialog}
-            disabled={isUpdatingProject || isDeletingProject}
-          >
-            {isDeletingProject ? 'Deleting...' : 'Delete project'}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              className={secondaryButtonClassName}
+              onClick={startEditingProject}
+              disabled={isUpdatingProject || isDeletingProject}
+            >
+              Edit project
+            </button>
+            <button
+              type="button"
+              className={dangerButtonClassName}
+              onClick={openDeleteProjectDialog}
+              disabled={isUpdatingProject || isDeletingProject}
+            >
+              {isDeletingProject ? 'Deleting...' : 'Delete project'}
+            </button>
+          </div>
         </div>
 
         {!activeSprint ? (
-          <p className="status-copy project-view-note">
+          <div className="mt-5 rounded-[24px] border border-brand-100 bg-white/88 px-4 py-4 text-sm leading-6 text-slate-500">
             Start a sprint when the backlog has work ready to commit.
+          </div>
+        ) : null}
+
+        {error ? (
+          <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+            {error}
           </p>
         ) : null}
 
-        {error ? <p className="form-error">{error}</p> : null}
-
         {editingProjectId === selectedProject.id ? (
-          <form className="form-grid project-edit-form" onSubmit={handleUpdateProjectSubmit}>
-            <label>
-              <span>Project name</span>
-              <input
-                type="text"
-                name="name"
-                value={editingProjectValues.name}
-                onChange={handleEditingProjectChange}
-              />
-            </label>
+          <form className="mt-6 grid gap-4 rounded-[24px] border border-stroke-1 bg-white/88 p-4" onSubmit={handleUpdateProjectSubmit}>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <label className={labelClassName}>
+                <span>Project name</span>
+                <input
+                  type="text"
+                  name="name"
+                  value={editingProjectValues.name}
+                  onChange={handleEditingProjectChange}
+                  className={inputClassName}
+                />
+              </label>
 
-            <label>
-              <span>Description</span>
-              <textarea
-                name="description"
-                rows="3"
-                value={editingProjectValues.description}
-                onChange={handleEditingProjectChange}
-              />
-            </label>
+              <label className={`${labelClassName} lg:col-span-2`}>
+                <span>Description</span>
+                <textarea
+                  name="description"
+                  rows="4"
+                  value={editingProjectValues.description}
+                  onChange={handleEditingProjectChange}
+                  className={`${inputClassName} min-h-32 resize-y`}
+                />
+              </label>
+            </div>
 
-            <div className="task-actions">
-              <button type="submit" className="primary-button" disabled={isUpdatingProject}>
+            <div className="flex flex-wrap gap-3">
+              <button type="submit" className={primaryButtonClassName} disabled={isUpdatingProject}>
                 {isUpdatingProject ? 'Saving...' : 'Save project'}
               </button>
               <button
                 type="button"
-                className="ghost-button ghost-button--action"
+                className={secondaryButtonClassName}
                 onClick={cancelEditingProject}
                 disabled={isUpdatingProject}
               >
@@ -661,59 +739,46 @@ function ProjectWorkspace({
         ) : null}
       </article>
 
-      <section className="dashboard-main-grid project-view-grid">
-        <article className="card board-summary board-summary--compact">
-          <div className="section-copy">
-            <p className="eyebrow">Active sprint</p>
-            <h2>{activeSprint ? activeSprint.name : 'No active sprint yet'}</h2>
-            <p>
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(320px,0.9fr)]">
+        <article className={panelClassName}>
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              Active sprint
+            </p>
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-ink-950">
+              {activeSprint ? activeSprint.name : 'No active sprint yet'}
+            </h2>
+            <p className="text-sm leading-6 text-slate-500">
               {activeSprint
                 ? activeSprint.goal || 'This sprint is ready to receive and organize committed work.'
                 : 'Start one sprint for this project before organizing work inside the sprint board.'}
             </p>
           </div>
 
-          <div className="summary-metric-grid summary-metric-grid--compact">
-            <article className="summary-metric-card">
-              <strong>{sprintTaskCount}</strong>
-              <span>Sprint tasks</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{sprintPointCount}</strong>
-              <span>Sprint points</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{sprintDoneCount}</strong>
-              <span>Sprint done</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{sprintDonePointCount}</strong>
-              <span>Done points</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{activeSprint ? formatDate(activeSprint.endDate) : 'None'}</strong>
-              <span>Target end</span>
-            </article>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+            <MetricCard label="Sprint tasks" value={sprintTaskCount} />
+            <MetricCard label="Sprint points" value={sprintPointCount} />
+            <MetricCard label="Sprint done" value={sprintDoneCount} />
+            <MetricCard label="Done points" value={sprintDonePointCount} />
+            <MetricCard
+              label="Target end"
+              value={activeSprint ? formatDate(activeSprint.endDate) : 'None'}
+            />
           </div>
 
-          {activeSprint ? (
-            <div className={`capacity-insight capacity-insight--${sprintCapacityInsight.tone}`}>
-              <strong>{sprintCapacityInsight.title}</strong>
-              <span>{sprintCapacityInsight.description}</span>
-            </div>
-          ) : null}
+          {activeSprint ? <div className="mt-5"><InsightBanner insight={sprintCapacityInsight} /></div> : null}
 
           {activeSprint ? (
-            <div className="summary-action-row summary-action-row--split">
+            <div className="mt-5 flex flex-wrap gap-3">
               <Link
                 to={`/projects/${selectedProject.id}/sprints/${activeSprint.id}/board`}
-                className="primary-button"
+                className={primaryButtonClassName}
               >
                 Open sprint board
               </Link>
               <button
                 type="button"
-                className="ghost-button ghost-button--panel"
+                className={secondaryButtonClassName}
                 onClick={openCompleteSprintDialog}
                 disabled={isCompletingSprint}
               >
@@ -721,8 +786,8 @@ function ProjectWorkspace({
               </button>
             </div>
           ) : (
-            <form className="form-grid sprint-form" onSubmit={handleSprintSubmit}>
-              <label>
+            <form className="mt-5 grid gap-4" onSubmit={handleSprintSubmit}>
+              <label className={labelClassName}>
                 <span>Sprint name</span>
                 <input
                   type="text"
@@ -730,92 +795,86 @@ function ProjectWorkspace({
                   placeholder="Sprint 1"
                   value={sprintValues.name}
                   onChange={handleSprintChange}
+                  className={inputClassName}
                 />
               </label>
 
-              <label>
+              <label className={labelClassName}>
                 <span>Goal</span>
                 <textarea
                   name="goal"
-                  rows="3"
+                  rows="4"
                   placeholder="What should this sprint deliver?"
                   value={sprintValues.goal}
                   onChange={handleSprintChange}
+                  className={`${inputClassName} min-h-32 resize-y`}
                 />
               </label>
 
-              <label>
+              <label className={labelClassName}>
                 <span>Target end date</span>
                 <input
                   type="date"
                   name="endDate"
                   value={sprintValues.endDate}
                   onChange={handleSprintChange}
+                  className={inputClassName}
                 />
               </label>
 
-              <button type="submit" className="primary-button" disabled={isCreatingSprint}>
+              <button type="submit" className={primaryButtonClassName} disabled={isCreatingSprint}>
                 {isCreatingSprint ? 'Starting sprint...' : 'Start sprint'}
               </button>
             </form>
           )}
         </article>
 
-        <article className="card board-summary board-summary--compact">
-          <div className="section-copy">
-            <p className="eyebrow">Project backlog</p>
-            <h2>{backlogTaskCount} tasks outside the sprint</h2>
-            <p>
+        <article className={panelClassName}>
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              Project backlog
+            </p>
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-ink-950">
+              {backlogTaskCount} tasks outside the sprint
+            </h2>
+            <p className="text-sm leading-6 text-slate-500">
               Keep uncommitted work here, then pull it into a sprint when it is ready to be executed.
             </p>
           </div>
 
-          <div className="summary-metric-grid summary-metric-grid--compact">
-            <article className="summary-metric-card">
-              <strong>{projectTaskCount}</strong>
-              <span>Total tasks</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{projectColumns.length}</strong>
-              <span>Lanes</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{backlogTaskCount}</strong>
-              <span>Backlog tasks</span>
-            </article>
-            <article className="summary-metric-card">
-              <strong>{backlogPointCount}</strong>
-              <span>Backlog points</span>
-            </article>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <MetricCard label="Total tasks" value={projectTaskCount} />
+            <MetricCard label="Lanes" value={projectColumns.length} />
+            <MetricCard label="Backlog tasks" value={backlogTaskCount} />
+            <MetricCard label="Backlog points" value={backlogPointCount} />
           </div>
 
-          <div className={`capacity-insight capacity-insight--${backlogCapacityInsight.tone}`}>
-            <strong>{backlogCapacityInsight.title}</strong>
-            <span>{backlogCapacityInsight.description}</span>
+          <div className="mt-5">
+            <InsightBanner insight={backlogCapacityInsight} />
           </div>
 
-          <div className="summary-action-row summary-action-row--split project-backlog-toolbar">
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
-              className="ghost-button ghost-button--panel"
+              className={secondaryButtonClassName}
               onClick={() => setIsBacklogComposerOpen((currentValue) => !currentValue)}
             >
               {isBacklogComposerOpen ? 'Cancel backlog task' : 'Add backlog task'}
             </button>
-            <span className="status-copy">
+            <span className="max-w-md text-sm leading-6 text-slate-500">
               Backlog tasks live in <strong>{backlogColumn?.name || 'Backlog'}</strong> until they are assigned to a sprint.
             </span>
           </div>
 
           {carryOverBacklogTaskCount ? (
-            <p className="status-copy project-backlog-carryover-note">
+            <p className="mt-4 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700">
               {carryOverBacklogTaskCount} task{carryOverBacklogTaskCount === 1 ? '' : 's'} moved here after the last sprint was closed.
             </p>
           ) : null}
 
           {isBacklogComposerOpen ? (
-            <form className="form-grid sprint-form" onSubmit={handleBacklogTaskSubmit}>
-              <label>
+            <form className="mt-5 grid gap-4 rounded-[24px] border border-stroke-1 bg-surface-100/80 p-4" onSubmit={handleBacklogTaskSubmit}>
+              <label className={labelClassName}>
                 <span>Backlog task title</span>
                 <input
                   type="text"
@@ -823,27 +882,30 @@ function ProjectWorkspace({
                   placeholder="Prepare release checklist"
                   value={backlogTaskValues.title}
                   onChange={handleBacklogTaskChange}
+                  className={inputClassName}
                 />
               </label>
 
-              <label>
+              <label className={labelClassName}>
                 <span>Description</span>
                 <textarea
                   name="description"
-                  rows="3"
+                  rows="4"
                   placeholder="Optional details for the backlog item"
                   value={backlogTaskValues.description}
                   onChange={handleBacklogTaskChange}
+                  className={`${inputClassName} min-h-32 resize-y`}
                 />
               </label>
 
-              <div className="task-meta-grid">
-                <label>
+              <div className="grid gap-4 md:grid-cols-3">
+                <label className={labelClassName}>
                   <span>Priority</span>
                   <select
                     name="priority"
                     value={backlogTaskValues.priority}
                     onChange={handleBacklogTaskChange}
+                    className={inputClassName}
                   >
                     {priorityOptions.map((option) => (
                       <option key={option} value={option}>
@@ -853,7 +915,7 @@ function ProjectWorkspace({
                   </select>
                 </label>
 
-                <label>
+                <label className={labelClassName}>
                   <span>Story points</span>
                   <input
                     type="number"
@@ -863,21 +925,23 @@ function ProjectWorkspace({
                     step="1"
                     value={backlogTaskValues.storyPoints}
                     onChange={handleBacklogTaskChange}
+                    className={inputClassName}
                   />
                 </label>
 
-                <label>
+                <label className={labelClassName}>
                   <span>Due date</span>
                   <input
                     type="date"
                     name="dueDate"
                     value={backlogTaskValues.dueDate}
                     onChange={handleBacklogTaskChange}
+                    className={inputClassName}
                   />
                 </label>
               </div>
 
-              <label>
+              <label className={labelClassName}>
                 <span>Labels</span>
                 <input
                   type="text"
@@ -885,51 +949,55 @@ function ProjectWorkspace({
                   placeholder="frontend, qa"
                   value={backlogTaskValues.labels}
                   onChange={handleBacklogTaskChange}
+                  className={inputClassName}
                 />
               </label>
 
-              <button type="submit" className="primary-button" disabled={isCreatingTask}>
+              <button type="submit" className={primaryButtonClassName} disabled={isCreatingTask}>
                 {isCreatingTask ? 'Saving task...' : 'Add to backlog'}
               </button>
             </form>
           ) : null}
 
           {backlogTasks.length ? (
-            <div className="project-backlog-list">
+            <div className="mt-5 grid gap-4">
               {backlogTasks.map((task) => (
-                <article key={task.id} className="project-backlog-item">
+                <article key={task.id} className="rounded-[24px] border border-stroke-1 bg-white/88 p-4 shadow-soft-card">
                   {editingBacklogTaskId === task.id ? (
                     <form
-                      className="form-grid project-backlog-edit-form"
+                      className="grid gap-4"
                       onSubmit={(event) => handleUpdateBacklogTaskSubmit(event, task.id)}
                     >
-                      <label>
+                      <label className={labelClassName}>
                         <span>Task title</span>
                         <input
                           type="text"
                           name="title"
                           value={editingBacklogTaskValues.title}
                           onChange={handleEditingBacklogTaskChange}
+                          className={inputClassName}
                         />
                       </label>
 
-                      <label>
+                      <label className={labelClassName}>
                         <span>Description</span>
                         <textarea
                           name="description"
-                          rows="3"
+                          rows="4"
                           value={editingBacklogTaskValues.description}
                           onChange={handleEditingBacklogTaskChange}
+                          className={`${inputClassName} min-h-32 resize-y`}
                         />
                       </label>
 
-                      <div className="task-meta-grid">
-                        <label>
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <label className={labelClassName}>
                           <span>Priority</span>
                           <select
                             name="priority"
                             value={editingBacklogTaskValues.priority}
                             onChange={handleEditingBacklogTaskChange}
+                            className={inputClassName}
                           >
                             {priorityOptions.map((option) => (
                               <option key={option} value={option}>
@@ -939,7 +1007,7 @@ function ProjectWorkspace({
                           </select>
                         </label>
 
-                        <label>
+                        <label className={labelClassName}>
                           <span>Story points</span>
                           <input
                             type="number"
@@ -949,37 +1017,40 @@ function ProjectWorkspace({
                             step="1"
                             value={editingBacklogTaskValues.storyPoints}
                             onChange={handleEditingBacklogTaskChange}
+                            className={inputClassName}
                           />
                         </label>
 
-                        <label>
+                        <label className={labelClassName}>
                           <span>Due date</span>
                           <input
                             type="date"
                             name="dueDate"
                             value={editingBacklogTaskValues.dueDate}
                             onChange={handleEditingBacklogTaskChange}
+                            className={inputClassName}
                           />
                         </label>
                       </div>
 
-                      <label>
+                      <label className={labelClassName}>
                         <span>Labels</span>
                         <input
                           type="text"
                           name="labels"
                           value={editingBacklogTaskValues.labels}
                           onChange={handleEditingBacklogTaskChange}
+                          className={inputClassName}
                         />
                       </label>
 
-                      <div className="task-actions">
-                        <button type="submit" className="primary-button" disabled={isUpdatingTask}>
+                      <div className="flex flex-wrap gap-3">
+                        <button type="submit" className={primaryButtonClassName} disabled={isUpdatingTask}>
                           {isUpdatingTask ? 'Saving...' : 'Save task'}
                         </button>
                         <button
                           type="button"
-                          className="ghost-button ghost-button--action"
+                          className={secondaryButtonClassName}
                           onClick={cancelEditingBacklogTask}
                           disabled={isUpdatingTask}
                         >
@@ -988,28 +1059,43 @@ function ProjectWorkspace({
                       </div>
                     </form>
                   ) : (
-                    <>
-                      <div className="project-backlog-item__copy">
-                        <strong>{task.title}</strong>
-                        <p>{[task.columnName, task.description].filter(Boolean).join(' - ')}</p>
-                        <div className="project-backlog-item__meta">
-                          <span className="project-backlog-pill">{getStoryPoints(task)} pts</span>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-3">
+                        <div>
+                          <strong className="text-lg font-semibold tracking-[-0.03em] text-ink-950">
+                            {task.title}
+                          </strong>
+                          <p className="mt-2 text-sm leading-6 text-slate-500">
+                            {[task.columnName, task.description].filter(Boolean).join(' - ')}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">
+                            {getStoryPoints(task)} pts
+                          </span>
                           {task.carryOverSprintName || task.carryOverColumnName ? (
-                            <span className="project-backlog-pill">Carry over</span>
+                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                              Carry over
+                            </span>
                           ) : null}
                           {task.carryOverSprintName ? (
-                            <span className="status-copy">From {task.carryOverSprintName}</span>
+                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                              From {task.carryOverSprintName}
+                            </span>
                           ) : null}
                           {task.carryOverColumnName ? (
-                            <span className="status-copy">Left in {task.carryOverColumnName}</span>
+                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                              Left in {task.carryOverColumnName}
+                            </span>
                           ) : null}
                         </div>
                       </div>
 
-                      <div className="project-backlog-item__actions">
+                      <div className="flex flex-wrap gap-3 lg:justify-end">
                         <button
                           type="button"
-                          className="ghost-button ghost-button--action"
+                          className={secondaryButtonClassName}
                           onClick={() => startEditingBacklogTask(task)}
                           disabled={isUpdatingTask || isDeletingTask}
                         >
@@ -1017,7 +1103,7 @@ function ProjectWorkspace({
                         </button>
                         <button
                           type="button"
-                          className="ghost-button ghost-button--action ghost-button--danger-solid"
+                          className={dangerButtonClassName}
                           onClick={() => openDeleteBacklogTaskDialog(task)}
                           disabled={isUpdatingTask || isDeletingTask}
                         >
@@ -1025,7 +1111,7 @@ function ProjectWorkspace({
                         </button>
                         <button
                           type="button"
-                          className="ghost-button ghost-button--panel"
+                          className={secondaryButtonClassName}
                           disabled={!activeSprint || isUpdatingTask || isDeletingTask}
                           onClick={() => handleAddTaskToSprint(task.id)}
                         >
@@ -1036,23 +1122,27 @@ function ProjectWorkspace({
                               : 'Add to sprint'}
                         </button>
                       </div>
-                    </>
+                    </div>
                   )}
                 </article>
               ))}
             </div>
           ) : (
-            <p className="status-copy project-backlog-empty">
+            <p className="mt-5 rounded-[24px] border border-dashed border-stroke-2 bg-surface-100 px-4 py-5 text-sm leading-6 text-slate-500">
               No backlog tasks yet. Add one when work is ready to be planned.
             </p>
           )}
         </article>
 
-        <article className="card sprint-history-panel">
-          <div className="section-copy">
-            <p className="eyebrow">Sprint history</p>
-            <h2>{completedSprints.length ? 'Previous sprints' : 'No previous sprints yet'}</h2>
-            <p>
+        <article className={panelClassName}>
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              Sprint history
+            </p>
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-ink-950">
+              {completedSprints.length ? 'Previous sprints' : 'No previous sprints yet'}
+            </h2>
+            <p className="text-sm leading-6 text-slate-500">
               {completedSprints.length
                 ? 'Open any previous sprint to inspect the board state and its committed work.'
                 : 'Completed sprints will appear here once the project starts shipping work in cycles.'}
@@ -1060,55 +1150,64 @@ function ProjectWorkspace({
           </div>
 
           {completedSprints.length ? (
-            <div className="summary-metric-grid summary-metric-grid--compact sprint-history-metrics">
-              <article className="summary-metric-card">
-                <strong>{completedSprints.length}</strong>
-                <span>Completed sprints</span>
-              </article>
-              <article className="summary-metric-card">
-                <strong>{velocitySummary.lastVelocity}</strong>
-                <span>Last velocity</span>
-              </article>
-              <article className="summary-metric-card">
-                <strong>{formatPointAverage(velocitySummary.averageVelocity)}</strong>
-                <span>Average velocity</span>
-              </article>
-            </div>
-          ) : null}
+            <>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <MetricCard label="Completed sprints" value={completedSprints.length} />
+                <MetricCard label="Last velocity" value={velocitySummary.lastVelocity} />
+                <MetricCard
+                  label="Average velocity"
+                  value={formatPointAverage(velocitySummary.averageVelocity)}
+                />
+              </div>
 
-          {completedSprints.length ? (
-            <div className="project-list sprint-history-list">
-              {completedSprints.map((sprint) => (
-                <article key={sprint.id} className="history-sprint-item">
-                  <div className="history-sprint-item__copy">
-                    <h3>{sprint.name}</h3>
-                    <p>{sprint.goal || 'No sprint goal was added.'}</p>
-                    <div className="history-sprint-item__meta">
-                      <span className="history-sprint-item__pill">
-                        {historyTaskCountBySprintId[sprint.id] || 0} tasks
-                      </span>
-                      <span className="history-sprint-item__pill">
-                        {historyPointCountBySprintId[sprint.id] || 0} pts
-                      </span>
-                      <span className="history-sprint-item__pill history-sprint-item__pill--velocity">
-                        {historyVelocityBySprintId[sprint.id] || 0} done pts
-                      </span>
-                      <span className="status-copy">Ended {getSprintCompletedDateLabel(sprint)}</span>
+              <div className="mt-5 grid gap-4">
+                {completedSprints.map((sprint) => (
+                  <article key={sprint.id} className="rounded-[24px] border border-stroke-1 bg-white/88 p-4 shadow-soft-card">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="text-lg font-semibold tracking-[-0.03em] text-ink-950">
+                            {sprint.name}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-slate-500">
+                            {sprint.goal || 'No sprint goal was added.'}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                            {historyTaskCountBySprintId[sprint.id] || 0} tasks
+                          </span>
+                          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">
+                            {historyPointCountBySprintId[sprint.id] || 0} pts
+                          </span>
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                            {historyVelocityBySprintId[sprint.id] || 0} done pts
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                            Ended {getSprintCompletedDateLabel(sprint)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Link
+                          to={`/projects/${selectedProject.id}/sprints/${sprint.id}/board`}
+                          className={secondaryButtonClassName}
+                        >
+                          View board
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="history-sprint-item__actions">
-                    <Link
-                      to={`/projects/${selectedProject.id}/sprints/${sprint.id}/board`}
-                      className="ghost-button ghost-button--panel"
-                    >
-                      View board
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : null}
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mt-5 rounded-[24px] border border-dashed border-stroke-2 bg-surface-100 px-4 py-5 text-sm leading-6 text-slate-500">
+              Completed sprints will show up here once the team closes its first cycle.
+            </p>
+          )}
         </article>
       </section>
 
