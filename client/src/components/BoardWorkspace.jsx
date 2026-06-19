@@ -22,6 +22,21 @@ function formatDueDate(value) {
   }).format(date);
 }
 
+function formatSprintDateRange(sprint) {
+  if (!sprint?.startDate && !sprint?.endDate) {
+    return 'Schedule not set';
+  }
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
+  const start = sprint?.startDate ? formatter.format(new Date(sprint.startDate)) : 'Start now';
+  const end = sprint?.endDate ? formatter.format(new Date(sprint.endDate)) : 'No deadline';
+
+  return `${start} - ${end}`;
+}
+
 function normalizeLabels(value) {
   return value
     .split(',')
@@ -259,6 +274,8 @@ function BoardWorkspace({
     [selectedProject, sprintId]
   );
   const isReadonlySprintBoard = Boolean(selectedSprint && selectedSprint.status !== 'active');
+  const boardPhaseLabel = isReadonlySprintBoard ? 'Sprint history' : 'Active sprint';
+  const boardDateRange = selectedSprint ? formatSprintDateRange(selectedSprint) : 'Choose a sprint';
   const backlogColumn = useMemo(() => {
     if (!selectedProject) {
       return null;
@@ -702,17 +719,9 @@ function BoardWorkspace({
         <article className="card board-project-bar">
           <div className="board-project-bar__content">
             <div className="board-project-bar__copy">
-              <p className="eyebrow">Sprint Board</p>
+              <p className="eyebrow">{boardPhaseLabel}</p>
               {selectedProject ? (
                 <p className="board-project-kicker">{selectedProject.name}</p>
-              ) : null}
-              {selectedProject ? (
-                <Link
-                  to={`/projects/${selectedProject.id}`}
-                  className="ghost-button ghost-button--panel board-project-link"
-                >
-                  Back to project
-                </Link>
               ) : null}
               <h1>{selectedSprint ? selectedSprint.name : 'Choose a sprint'}</h1>
               <p>
@@ -722,41 +731,57 @@ function BoardWorkspace({
                   : 'Open a project sprint before managing the board.'}
               </p>
               {selectedSprint ? (
-                <p className="board-instruction">
-                  {isReadonlySprintBoard
-                    ? 'This sprint is closed. You can review its board, but changes are locked.'
-                    : isMobileBoard
-                      ? 'Use the column selector and the Move to control to update progress.'
-                      : 'Drag cards between columns to update progress.'}
-                </p>
+                <div className="board-hero-meta">
+                  <span className="board-hero-pill">{boardDateRange}</span>
+                  <span className="board-hero-pill board-hero-pill--strong">
+                    {sprintTaskCount} tasks
+                  </span>
+                  <span className="board-hero-pill">{boardStats.totalPoints} pts planned</span>
+                </div>
               ) : null}
               {selectedSprint ? (
-                <div className="board-sprint-banner">
-                  <span className="board-sprint-banner__eyebrow">
-                    {isReadonlySprintBoard ? 'Sprint history' : 'Active sprint'}
-                  </span>
-                  <strong>{selectedSprint.name}</strong>
-                  <span>
-                    {sprintTaskCount} tasks included - {boardStats.totalPoints} pts
-                  </span>
-                </div>
+                <p className="board-instruction">
+                  {isReadonlySprintBoard
+                    ? 'This sprint is archived. Review the state of the board without editing cards.'
+                    : isMobileBoard
+                      ? 'Use the column tabs and move controls to update work from mobile.'
+                      : 'Drag cards across the board to reflect the team’s progress in real time.'}
+                </p>
               ) : null}
             </div>
 
             {selectedProject ? (
-              <div className="board-stat-grid">
+              <div className="board-project-bar__aside">
+                <div className="board-hero-actions">
+                  <Link
+                    to={`/projects/${selectedProject.id}`}
+                    className="ghost-button ghost-button--panel board-project-link"
+                  >
+                    Back to project
+                  </Link>
+                  <span className={`board-status-chip ${isReadonlySprintBoard ? 'board-status-chip--muted' : ''}`}>
+                    {isReadonlySprintBoard ? 'Closed sprint' : 'Live board'}
+                  </span>
+                </div>
+
+                <div className="board-stat-grid">
                 <div className="board-stat-chip">
                   <strong>{boardStats.totalTasks}</strong>
-                  <span>Total cards - {boardStats.totalPoints} pts</span>
+                  <span>Total cards</span>
                 </div>
                 <div className="board-stat-chip">
                   <strong>{boardStats.inFlow}</strong>
-                  <span>In flow - {boardStats.inFlowPoints} pts</span>
+                  <span>In flow</span>
                 </div>
                 <div className="board-stat-chip">
                   <strong>{boardStats.done}</strong>
-                  <span>Done - {boardStats.donePoints} pts</span>
+                  <span>Done</span>
                 </div>
+                <div className="board-stat-chip">
+                  <strong>{boardStats.donePoints}</strong>
+                  <span>Done points</span>
+                </div>
+              </div>
               </div>
             ) : null}
           </div>
@@ -813,8 +838,11 @@ function BoardWorkspace({
                   {(isOver) => (
                     <>
                       <header className="board-column-header">
-                        <h3>{getBoardColumnLabel(column.name, selectedSprint)}</h3>
-                        <span>{column.tasks.length} cards</span>
+                        <div>
+                          <h3>{getBoardColumnLabel(column.name, selectedSprint)}</h3>
+                          <span>{column.tasks.length} cards</span>
+                        </div>
+                        <strong>{column.tasks.reduce((total, task) => total + getStoryPoints(task), 0)} pts</strong>
                       </header>
 
                       <div
@@ -939,7 +967,10 @@ function BoardWorkspace({
                                   <>
                                     <div className="task-card-copy">
                                       <div className="task-card-top">
-                                        <h4>{task.title}</h4>
+                                        <div className="task-card-title-block">
+                                          <span className="task-card-id">TK-{task.id.slice(0, 4).toUpperCase()}</span>
+                                          <h4>{task.title}</h4>
+                                        </div>
                                         {!isMobileBoard ? (
                                           <button
                                             type="button"
@@ -955,6 +986,9 @@ function BoardWorkspace({
                                         ) : null}
                                       </div>
                                       <div className="task-meta-row">
+                                        {task.labels?.[0] ? (
+                                          <span className="task-sprint-chip">{task.labels[0]}</span>
+                                        ) : null}
                                         <span
                                           className={`priority-badge priority-badge--${
                                             task.priority || 'medium'
@@ -1012,7 +1046,7 @@ function BoardWorkspace({
                                           disabled={isUpdatingTask || isDeletingTask}
                                           onClick={() => handleToggleSprintTask(task)}
                                         >
-                                          Remove from sprint
+                                          Return to backlog
                                         </button>
                                       </div>
                                     ) : null}
@@ -1062,7 +1096,7 @@ function BoardWorkspace({
                             className="ghost-button ghost-button--panel"
                             onClick={() => toggleTaskComposer(column.id)}
                           >
-                            {openTaskComposerByColumn[column.id] ? 'Cancel' : 'Add task'}
+                            {openTaskComposerByColumn[column.id] ? 'Cancel' : 'Add card'}
                           </button>
                         </div>
                       ) : null}

@@ -138,3 +138,5 @@ dist
 # Codex local workspace files
 .codex/
 .codex-*
+.pnpm-store/
+client/pnpm-workspace.yaml
