@@ -1,17 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ActionDialog from './ActionDialog';
-
-const inputClassName =
-  'mt-2 w-full rounded-2xl border border-stroke-1 bg-white px-4 py-3 text-sm text-ink-950 outline-none transition placeholder:text-slate-400 focus:border-brand-300 focus:ring-4 focus:ring-brand-100';
-const primaryButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#4f46e5_0%,#3525cd_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-soft-card transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60';
-const secondaryButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-stroke-1 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60';
-const dangerButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60';
-const panelClassName =
-  'rounded-[28px] border border-stroke-1 bg-white/92 p-5 shadow-soft-card backdrop-blur sm:p-6';
+import MetricCard from './ui/MetricCard';
+import {
+  buttonClassName,
+  inputClassName,
+  labelClassName,
+  panelClassName
+} from '../lib/ui';
 
 function getStoryPoints(task) {
   return Number(task?.storyPoints) || 0;
@@ -23,26 +19,6 @@ function formatPointAverage(value) {
   }
 
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-function MetricCard({ label, value, accent = 'default' }) {
-  const accentClassName =
-    accent === 'brand'
-      ? 'bg-brand-50 text-brand-700'
-      : accent === 'dark'
-        ? 'bg-ink-950 text-white'
-        : 'bg-surface-100 text-slate-600';
-
-  return (
-    <article className="rounded-[24px] border border-stroke-1 bg-white/90 p-4 shadow-soft-card">
-      <div className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${accentClassName}`}>
-        {label}
-      </div>
-      <strong className="mt-4 block text-3xl font-semibold tracking-[-0.05em] text-ink-950">
-        {value}
-      </strong>
-    </article>
-  );
 }
 
 function DashboardWorkspace({
@@ -321,12 +297,12 @@ function DashboardWorkspace({
 
             {selectedProject ? (
               <div className="flex flex-wrap gap-3">
-                <Link to={`/projects/${selectedProject.id}`} className={primaryButtonClassName}>
+                <Link to={`/projects/${selectedProject.id}`} className={buttonClassName()}>
                   Open project
                 </Link>
                 <button
                   type="button"
-                  className={secondaryButtonClassName}
+                  className={buttonClassName('secondary')}
                   onClick={startEditingProject}
                   disabled={isUpdatingProject || isDeletingProject}
                 >
@@ -334,7 +310,7 @@ function DashboardWorkspace({
                 </button>
                 <button
                   type="button"
-                  className={dangerButtonClassName}
+                  className={buttonClassName('danger')}
                   onClick={openDeleteProjectDialog}
                   disabled={isUpdatingProject || isDeletingProject}
                 >
@@ -346,7 +322,7 @@ function DashboardWorkspace({
             {editingProjectId === selectedProject?.id ? (
               <form className="grid gap-4 rounded-[24px] border border-stroke-1 bg-white/88 p-4" onSubmit={handleUpdateProjectSubmit}>
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <label className="grid gap-1.5 text-sm font-medium text-slate-600">
+                  <label className={labelClassName}>
                     <span>Project name</span>
                     <input
                       type="text"
@@ -357,7 +333,7 @@ function DashboardWorkspace({
                     />
                   </label>
 
-                  <label className="grid gap-1.5 text-sm font-medium text-slate-600 lg:col-span-2">
+                  <label className={`${labelClassName} lg:col-span-2`}>
                     <span>Description</span>
                     <textarea
                       name="description"
@@ -372,14 +348,14 @@ function DashboardWorkspace({
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="submit"
-                    className={primaryButtonClassName}
+                    className={buttonClassName()}
                     disabled={isUpdatingProject}
                   >
                     {isUpdatingProject ? 'Saving...' : 'Save project'}
                   </button>
                   <button
                     type="button"
-                    className={secondaryButtonClassName}
+                    className={buttonClassName('secondary')}
                     onClick={cancelEditingProject}
                     disabled={isUpdatingProject}
                   >
@@ -490,7 +466,7 @@ function DashboardWorkspace({
 
           <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-              <label className="grid gap-1.5 text-sm font-medium text-slate-600">
+              <label className={labelClassName}>
                 <span>Project name</span>
                 <input
                   type="text"
@@ -502,7 +478,7 @@ function DashboardWorkspace({
                 />
               </label>
 
-              <label className="grid gap-1.5 text-sm font-medium text-slate-600">
+              <label className={labelClassName}>
                 <span>Description</span>
                 <textarea
                   name="description"
@@ -516,7 +492,7 @@ function DashboardWorkspace({
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button type="submit" className={primaryButtonClassName} disabled={isCreating}>
+              <button type="submit" className={buttonClassName()} disabled={isCreating}>
                 {isCreating ? 'Creating project...' : 'Create project'}
               </button>
               <p className="self-center text-sm leading-6 text-slate-500">

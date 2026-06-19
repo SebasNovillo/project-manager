@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { buttonClassName, inputClassName, labelClassName } from '../lib/ui';
 
 function ActionDialog({
   isOpen,
@@ -30,13 +31,6 @@ function ActionDialog({
   const needsTypedConfirmation = Boolean(requiredText);
   const isConfirmDisabled =
     isBusy || (needsTypedConfirmation && value !== requiredText);
-  const toneClassName =
-    tone === 'danger'
-      ? 'dialog-card--danger'
-      : tone === 'warning'
-        ? 'dialog-card--warning'
-        : 'dialog-card--default';
-
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -55,9 +49,9 @@ function ActionDialog({
     >
       <div
         className={`w-full max-w-xl rounded-[30px] border bg-white p-6 shadow-soft-panel sm:p-7 ${
-          toneClassName === 'dialog-card--danger'
+          tone === 'danger'
             ? 'border-red-200'
-            : toneClassName === 'dialog-card--warning'
+            : tone === 'warning'
               ? 'border-amber-200'
               : 'border-stroke-1'
         }`}
@@ -78,7 +72,7 @@ function ActionDialog({
           </div>
 
           {needsTypedConfirmation ? (
-            <label className="grid gap-1.5 text-sm font-medium text-slate-600">
+            <label className={labelClassName}>
               <span>{inputLabel}</span>
               <input
                 type="text"
@@ -86,7 +80,7 @@ function ActionDialog({
                 onChange={(event) => setValue(event.target.value)}
                 placeholder={inputPlaceholder || requiredText}
                 autoFocus
-                className="w-full rounded-2xl border border-stroke-1 bg-white px-4 py-3 text-sm text-ink-950 outline-none transition placeholder:text-slate-400 focus:border-brand-300 focus:ring-4 focus:ring-brand-100"
+                className={inputClassName.replace('mt-2 ', '')}
               />
               {inputHelp ? <small className="text-xs font-medium text-slate-400">{inputHelp}</small> : null}
             </label>
@@ -95,7 +89,7 @@ function ActionDialog({
           <div className="flex flex-wrap justify-end gap-3">
             <button
               type="button"
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-stroke-1 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className={buttonClassName('secondary')}
               onClick={onClose}
               disabled={isBusy}
             >
@@ -103,13 +97,13 @@ function ActionDialog({
             </button>
             <button
               type="submit"
-              className={`inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+              className={
                 tone === 'danger'
-                  ? 'bg-red-500 hover:bg-red-600'
+                  ? buttonClassName('danger')
                   : tone === 'warning'
-                    ? 'bg-amber-500 hover:bg-amber-600'
-                    : 'bg-[linear-gradient(135deg,#4f46e5_0%,#3525cd_100%)] hover:brightness-105'
-              }`}
+                    ? buttonClassName('warning')
+                    : buttonClassName()
+              }
               disabled={isConfirmDisabled}
             >
               {confirmLabel}

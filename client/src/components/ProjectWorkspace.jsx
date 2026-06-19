@@ -1,19 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import ActionDialog from './ActionDialog';
+import EmptyStatePanel from './ui/EmptyStatePanel';
+import InsightBanner from './ui/InsightBanner';
+import MetricCard from './ui/MetricCard';
+import { buttonClassName, cardClassName, inputClassName, labelClassName, panelClassName } from '../lib/ui';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
-const panelClassName =
-  'rounded-[28px] border border-stroke-1 bg-white/92 p-5 shadow-soft-card backdrop-blur sm:p-6';
-const inputClassName =
-  'mt-2 w-full rounded-2xl border border-stroke-1 bg-white px-4 py-3 text-sm text-ink-950 outline-none transition placeholder:text-slate-400 focus:border-brand-300 focus:ring-4 focus:ring-brand-100';
-const labelClassName = 'grid gap-1.5 text-sm font-medium text-slate-600';
-const primaryButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#4f46e5_0%,#3525cd_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-soft-card transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60';
-const secondaryButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-stroke-1 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60';
-const dangerButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60';
 
 function formatDate(value) {
   if (!value) {
@@ -104,49 +97,6 @@ function getCapacityInsight(plannedPoints, averageVelocity, scopeLabel) {
     title: 'Above average capacity',
     description: `This ${scopeLabel} has ${plannedPoints} pts, which is above the ${averageLabel} pt average velocity. Consider trimming scope.`
   };
-}
-
-function MetricCard({ label, value }) {
-  return (
-    <article className="rounded-[22px] border border-stroke-1 bg-white/88 p-4 shadow-soft-card">
-      <strong className="block text-3xl font-semibold tracking-[-0.05em] text-ink-950">
-        {value}
-      </strong>
-      <span className="mt-2 block text-sm font-medium text-slate-500">{label}</span>
-    </article>
-  );
-}
-
-function InsightBanner({ insight }) {
-  const toneClassName =
-    insight.tone === 'good'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-      : insight.tone === 'warning'
-        ? 'border-amber-200 bg-amber-50 text-amber-700'
-        : insight.tone === 'risk'
-          ? 'border-red-200 bg-red-50 text-red-700'
-          : 'border-stroke-1 bg-surface-100 text-slate-600';
-
-  return (
-    <div className={`rounded-[24px] border px-4 py-4 ${toneClassName}`}>
-      <strong className="block text-sm font-semibold">{insight.title}</strong>
-      <span className="mt-2 block text-sm leading-6">{insight.description}</span>
-    </div>
-  );
-}
-
-function EmptyPanel({ eyebrow, title, description }) {
-  return (
-    <article className={`${panelClassName} grid min-h-56 place-items-center text-center`}>
-      <div className="max-w-lg space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-600">
-          {eyebrow}
-        </p>
-        <h2 className="text-3xl font-semibold tracking-[-0.05em] text-ink-950">{title}</h2>
-        <p className="text-base leading-7 text-slate-500">{description}</p>
-      </div>
-    </article>
-  );
 }
 
 function ProjectWorkspace({
@@ -627,7 +577,7 @@ function ProjectWorkspace({
 
   if (isLoading) {
     return (
-      <EmptyPanel
+      <EmptyStatePanel
         eyebrow="Project"
         title="Loading project"
         description="We are pulling the latest sprint, backlog, and history details for this workspace."
@@ -637,7 +587,7 @@ function ProjectWorkspace({
 
   if (!selectedProject) {
     return (
-      <EmptyPanel
+      <EmptyStatePanel
         eyebrow="Project"
         title="No project selected"
         description="Go back to the dashboard and choose a project before managing sprints or the board."
@@ -667,7 +617,7 @@ function ProjectWorkspace({
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              className={secondaryButtonClassName}
+              className={buttonClassName('secondary')}
               onClick={startEditingProject}
               disabled={isUpdatingProject || isDeletingProject}
             >
@@ -675,7 +625,7 @@ function ProjectWorkspace({
             </button>
             <button
               type="button"
-              className={dangerButtonClassName}
+              className={buttonClassName('danger')}
               onClick={openDeleteProjectDialog}
               disabled={isUpdatingProject || isDeletingProject}
             >
@@ -723,12 +673,12 @@ function ProjectWorkspace({
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button type="submit" className={primaryButtonClassName} disabled={isUpdatingProject}>
+              <button type="submit" className={buttonClassName()} disabled={isUpdatingProject}>
                 {isUpdatingProject ? 'Saving...' : 'Save project'}
               </button>
               <button
                 type="button"
-                className={secondaryButtonClassName}
+                className={buttonClassName('secondary')}
                 onClick={cancelEditingProject}
                 disabled={isUpdatingProject}
               >
@@ -772,13 +722,13 @@ function ProjectWorkspace({
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
                 to={`/projects/${selectedProject.id}/sprints/${activeSprint.id}/board`}
-                className={primaryButtonClassName}
+                className={buttonClassName()}
               >
                 Open sprint board
               </Link>
               <button
                 type="button"
-                className={secondaryButtonClassName}
+                className={buttonClassName('secondary')}
                 onClick={openCompleteSprintDialog}
                 disabled={isCompletingSprint}
               >
@@ -822,7 +772,7 @@ function ProjectWorkspace({
                 />
               </label>
 
-              <button type="submit" className={primaryButtonClassName} disabled={isCreatingSprint}>
+              <button type="submit" className={buttonClassName()} disabled={isCreatingSprint}>
                 {isCreatingSprint ? 'Starting sprint...' : 'Start sprint'}
               </button>
             </form>
@@ -856,7 +806,7 @@ function ProjectWorkspace({
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
-              className={secondaryButtonClassName}
+              className={buttonClassName('secondary')}
               onClick={() => setIsBacklogComposerOpen((currentValue) => !currentValue)}
             >
               {isBacklogComposerOpen ? 'Cancel backlog task' : 'Add backlog task'}
@@ -953,7 +903,7 @@ function ProjectWorkspace({
                 />
               </label>
 
-              <button type="submit" className={primaryButtonClassName} disabled={isCreatingTask}>
+              <button type="submit" className={buttonClassName()} disabled={isCreatingTask}>
                 {isCreatingTask ? 'Saving task...' : 'Add to backlog'}
               </button>
             </form>
@@ -962,7 +912,7 @@ function ProjectWorkspace({
           {backlogTasks.length ? (
             <div className="mt-5 grid gap-4">
               {backlogTasks.map((task) => (
-                <article key={task.id} className="rounded-[24px] border border-stroke-1 bg-white/88 p-4 shadow-soft-card">
+                <article key={task.id} className={cardClassName}>
                   {editingBacklogTaskId === task.id ? (
                     <form
                       className="grid gap-4"
@@ -1045,12 +995,12 @@ function ProjectWorkspace({
                       </label>
 
                       <div className="flex flex-wrap gap-3">
-                        <button type="submit" className={primaryButtonClassName} disabled={isUpdatingTask}>
+                        <button type="submit" className={buttonClassName()} disabled={isUpdatingTask}>
                           {isUpdatingTask ? 'Saving...' : 'Save task'}
                         </button>
                         <button
                           type="button"
-                          className={secondaryButtonClassName}
+                          className={buttonClassName('secondary')}
                           onClick={cancelEditingBacklogTask}
                           disabled={isUpdatingTask}
                         >
@@ -1095,7 +1045,7 @@ function ProjectWorkspace({
                       <div className="flex flex-wrap gap-3 lg:justify-end">
                         <button
                           type="button"
-                          className={secondaryButtonClassName}
+                          className={buttonClassName('secondary')}
                           onClick={() => startEditingBacklogTask(task)}
                           disabled={isUpdatingTask || isDeletingTask}
                         >
@@ -1103,7 +1053,7 @@ function ProjectWorkspace({
                         </button>
                         <button
                           type="button"
-                          className={dangerButtonClassName}
+                          className={buttonClassName('danger')}
                           onClick={() => openDeleteBacklogTaskDialog(task)}
                           disabled={isUpdatingTask || isDeletingTask}
                         >
@@ -1111,7 +1061,7 @@ function ProjectWorkspace({
                         </button>
                         <button
                           type="button"
-                          className={secondaryButtonClassName}
+                          className={buttonClassName('secondary')}
                           disabled={!activeSprint || isUpdatingTask || isDeletingTask}
                           onClick={() => handleAddTaskToSprint(task.id)}
                         >
@@ -1162,7 +1112,7 @@ function ProjectWorkspace({
 
               <div className="mt-5 grid gap-4">
                 {completedSprints.map((sprint) => (
-                  <article key={sprint.id} className="rounded-[24px] border border-stroke-1 bg-white/88 p-4 shadow-soft-card">
+                  <article key={sprint.id} className={cardClassName}>
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-3">
                         <div>
@@ -1193,7 +1143,7 @@ function ProjectWorkspace({
                       <div className="flex justify-end">
                         <Link
                           to={`/projects/${selectedProject.id}/sprints/${sprint.id}/board`}
-                          className={secondaryButtonClassName}
+                          className={buttonClassName('secondary')}
                         >
                           View board
                         </Link>

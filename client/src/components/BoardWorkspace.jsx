@@ -10,19 +10,18 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import EmptyStatePanel from './ui/EmptyStatePanel';
+import FeedbackBanner from './ui/FeedbackBanner';
+import MetricCard from './ui/MetricCard';
+import {
+  buttonClassName,
+  cx,
+  inputClassName,
+  labelClassName,
+  panelClassName
+} from '../lib/ui';
 
 const priorityOptions = ['low', 'medium', 'high', 'urgent'];
-const inputClassName =
-  'mt-2 w-full rounded-2xl border border-stroke-1 bg-white px-4 py-3 text-sm text-ink-950 outline-none transition placeholder:text-slate-400 focus:border-brand-300 focus:ring-4 focus:ring-brand-100';
-const labelClassName = 'grid gap-1.5 text-sm font-medium text-slate-600';
-const primaryButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#4f46e5_0%,#3525cd_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-soft-card transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60';
-const secondaryButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-stroke-1 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60';
-const dangerButtonClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60';
-const panelClassName =
-  'rounded-[28px] border border-stroke-1 bg-white/92 p-5 shadow-soft-card backdrop-blur sm:p-6';
 
 function formatDueDate(value) {
   if (!value) {
@@ -168,44 +167,6 @@ function getPriorityBadgeClass(priority) {
   return 'bg-brand-50 text-brand-700';
 }
 
-function StatCard({ label, value }) {
-  return (
-    <article className="rounded-[22px] border border-stroke-1 bg-white/88 p-4 shadow-soft-card">
-      <strong className="block text-3xl font-semibold tracking-[-0.05em] text-ink-950">
-        {value}
-      </strong>
-      <span className="mt-2 block text-sm font-medium text-slate-500">{label}</span>
-    </article>
-  );
-}
-
-function EmptyPanel({ eyebrow, title, description }) {
-  return (
-    <article className={`${panelClassName} grid min-h-56 place-items-center text-center`}>
-      <div className="max-w-lg space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-600">
-          {eyebrow}
-        </p>
-        <h2 className="text-3xl font-semibold tracking-[-0.05em] text-ink-950">{title}</h2>
-        <p className="text-base leading-7 text-slate-500">{description}</p>
-      </div>
-    </article>
-  );
-}
-
-function FeedbackMessage({ message, tone }) {
-  const toneClassName =
-    tone === 'error'
-      ? 'border-red-200 bg-red-50 text-red-600'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-700';
-
-  return (
-    <p className={`rounded-2xl border px-4 py-3 text-sm font-medium ${toneClassName}`}>
-      {message}
-    </p>
-  );
-}
-
 function DroppableColumn({ column, isActive, children }) {
   const { setNodeRef, isOver } = useDroppable({
     id: getColumnDroppableId(column.id),
@@ -219,13 +180,15 @@ function DroppableColumn({ column, isActive, children }) {
   return (
     <section
       ref={setNodeRef}
-      className={`rounded-[28px] border p-4 shadow-soft-card transition ${theme.shell} ${
+      className={cx(
+        'rounded-[28px] border p-4 shadow-soft-card transition',
+        theme.shell,
         isOver
           ? 'border-brand-300 ring-4 ring-brand-100'
           : isActive
             ? 'border-brand-200 ring-2 ring-brand-100'
             : ''
-      }`}
+      )}
     >
       {children({ isOver, theme })}
     </section>
@@ -280,11 +243,13 @@ function TaskCard({
     <article
       ref={setNodeRef}
       style={style}
-      className={`rounded-[24px] border border-stroke-1 bg-white p-4 shadow-soft-card transition ${
+      className={cx(
+        'rounded-[24px] border border-stroke-1 bg-white p-4 shadow-soft-card transition',
         isDragging || isDraggingCard
           ? 'rotate-[1deg] scale-[1.01] border-brand-300 shadow-soft-panel'
-          : ''
-      } ${isOver && !isDragging ? 'border-brand-300 ring-4 ring-brand-100' : ''}`}
+          : '',
+        isOver && !isDragging ? 'border-brand-300 ring-4 ring-brand-100' : ''
+      )}
     >
       {children({
         dragHandleProps:
@@ -847,7 +812,7 @@ function BoardWorkspace({
 
   if (isLoading) {
     return (
-      <EmptyPanel
+      <EmptyStatePanel
         eyebrow="Board"
         title="Loading sprint board"
         description="We are bringing in the latest sprint lanes and cards for this project."
@@ -857,7 +822,7 @@ function BoardWorkspace({
 
   if (!selectedSprint) {
     return (
-      <EmptyPanel
+      <EmptyStatePanel
         eyebrow="Board"
         title="No sprint selected"
         description="Open a project sprint before managing tasks in the board."
@@ -913,7 +878,7 @@ function BoardWorkspace({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Link
                 to={`/projects/${selectedProject.id}`}
-                className={secondaryButtonClassName}
+                className={buttonClassName('secondary')}
               >
                 Back to project
               </Link>
@@ -929,19 +894,19 @@ function BoardWorkspace({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <StatCard label="Total cards" value={boardStats.totalTasks} />
-              <StatCard label="In flow" value={boardStats.inFlow} />
-              <StatCard label="Done" value={boardStats.done} />
-              <StatCard label="Done points" value={boardStats.donePoints} />
+              <MetricCard label="Total cards" value={boardStats.totalTasks} />
+              <MetricCard label="In flow" value={boardStats.inFlow} />
+              <MetricCard label="Done" value={boardStats.done} />
+              <MetricCard label="Done points" value={boardStats.donePoints} />
             </div>
           </div>
         </div>
 
         {(error || taskFormError || taskFormSuccess) ? (
           <div className="mt-5 grid gap-3" aria-live="polite">
-            {error ? <FeedbackMessage message={error} tone="error" /> : null}
-            {taskFormError ? <FeedbackMessage message={taskFormError} tone="error" /> : null}
-            {taskFormSuccess ? <FeedbackMessage message={taskFormSuccess} tone="success" /> : null}
+            {error ? <FeedbackBanner message={error} tone="error" /> : null}
+            {taskFormError ? <FeedbackBanner message={taskFormError} tone="error" /> : null}
+            {taskFormSuccess ? <FeedbackBanner message={taskFormSuccess} tone="success" /> : null}
           </div>
         ) : null}
       </article>
@@ -1106,14 +1071,14 @@ function BoardWorkspace({
                                   <div className="flex flex-wrap gap-3">
                                     <button
                                       type="submit"
-                                      className={primaryButtonClassName}
+                                      className={buttonClassName()}
                                       disabled={isUpdatingTask}
                                     >
                                       {isUpdatingTask ? 'Saving...' : 'Save'}
                                     </button>
                                     <button
                                       type="button"
-                                      className={secondaryButtonClassName}
+                                      className={buttonClassName('secondary')}
                                       onClick={cancelEditingTask}
                                       disabled={isUpdatingTask}
                                     >
@@ -1193,7 +1158,7 @@ function BoardWorkspace({
                                   <div className="flex flex-wrap gap-3">
                                     <button
                                       type="button"
-                                      className={secondaryButtonClassName}
+                                      className={buttonClassName('secondary')}
                                       disabled={isUpdatingTask || isDeletingTask}
                                       onClick={() => startEditingTask(task)}
                                     >
@@ -1201,7 +1166,7 @@ function BoardWorkspace({
                                     </button>
                                     <button
                                       type="button"
-                                      className={dangerButtonClassName}
+                                      className={buttonClassName('danger')}
                                       disabled={isUpdatingTask || isDeletingTask}
                                       onClick={() => handleDeleteTask(task.id)}
                                     >
@@ -1209,7 +1174,7 @@ function BoardWorkspace({
                                     </button>
                                     <button
                                       type="button"
-                                      className={secondaryButtonClassName}
+                                      className={buttonClassName('secondary')}
                                       disabled={isUpdatingTask || isDeletingTask}
                                       onClick={() => handleToggleSprintTask(task)}
                                     >
@@ -1243,7 +1208,7 @@ function BoardWorkspace({
                                     </select>
                                     <button
                                       type="button"
-                                      className={secondaryButtonClassName}
+                                      className={buttonClassName('secondary')}
                                       disabled={isUpdatingTask}
                                       onClick={() => handleMobileMove(task.id, column.id)}
                                     >
@@ -1263,7 +1228,7 @@ function BoardWorkspace({
                     <div className="pt-1">
                       <button
                         type="button"
-                        className={secondaryButtonClassName}
+                        className={buttonClassName('secondary')}
                         onClick={() => toggleTaskComposer(column.id)}
                       >
                         {openTaskComposerByColumn[column.id] ? 'Cancel' : 'Add card'}
@@ -1373,7 +1338,7 @@ function BoardWorkspace({
 
                       <button
                         type="submit"
-                        className={primaryButtonClassName}
+                        className={buttonClassName()}
                         disabled={isCreatingTask}
                       >
                         {isCreatingTask ? 'Saving task...' : 'Add task'}

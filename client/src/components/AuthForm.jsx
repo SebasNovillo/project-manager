@@ -1,3 +1,5 @@
+import { buttonClassName, inputClassName, labelClassName, panelClassName } from '../lib/ui';
+
 function AuthForm({
   title,
   subtitle,
@@ -9,11 +11,8 @@ function AuthForm({
   onChange,
   onSubmit
 }) {
-  const inputClassName =
-    'mt-2 w-full rounded-2xl border border-stroke-1 bg-white px-4 py-3 text-sm text-ink-950 outline-none transition placeholder:text-slate-400 focus:border-brand-300 focus:ring-4 focus:ring-brand-100';
-
   return (
-    <section className="rounded-[28px] border border-stroke-1 bg-white/96 p-6 shadow-soft-card sm:p-7">
+    <section className={`${panelClassName} bg-white/96 p-6 sm:p-7`}>
       <div className="space-y-2">
         <h2 className="text-2xl font-semibold tracking-[-0.04em] text-ink-950">{title}</h2>
         <p className="text-sm leading-6 text-slate-500">{subtitle}</p>
@@ -21,7 +20,7 @@ function AuthForm({
 
       <form className="mt-6 grid gap-4" onSubmit={onSubmit}>
         {values.name !== undefined ? (
-          <label className="grid gap-1.5 text-sm font-medium text-slate-600">
+          <label className={labelClassName}>
             <span>Full name</span>
             <input
               type="text"
@@ -34,7 +33,7 @@ function AuthForm({
           </label>
         ) : null}
 
-        <label className="grid gap-1.5 text-sm font-medium text-slate-600">
+        <label className={labelClassName}>
           <span>Email</span>
           <input
             type="email"
@@ -46,7 +45,7 @@ function AuthForm({
           />
         </label>
 
-        <label className="grid gap-1.5 text-sm font-medium text-slate-600">
+        <label className={labelClassName}>
           <span>Password</span>
           <input
             type="password"
@@ -59,7 +58,7 @@ function AuthForm({
         </label>
 
         {values.confirmPassword !== undefined ? (
-          <label className="grid gap-1.5 text-sm font-medium text-slate-600">
+          <label className={labelClassName}>
             <span>Confirm password</span>
             <input
               type="password"
@@ -80,7 +79,7 @@ function AuthForm({
 
         <button
           type="submit"
-          className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#4f46e5_0%,#3525cd_100%)] px-4 py-3 text-sm font-semibold text-white shadow-soft-card transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+          className={`${buttonClassName()} min-h-12 py-3`}
           disabled={isSubmitting}
         >
           {isSubmitting ? 'Please wait...' : submitLabel}
